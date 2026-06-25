@@ -331,7 +331,7 @@ const STATUS = {
   repair:{th:'แจ้งซ่อม',c:'--repair',bg:'--repair-bg'}
 };
 
-/* ข้อมูลจริงโหลดจากหลังบ้าน (google.script.run.getDriversData) */
+/* ข้อมูลจริงโหลดจากหลังบ้านผ่าน fetch (GAS action=getDrivers) */
 let drivers = [];
 let tasks = [];
 let IDLE_LIMIT_MIN = 10;
@@ -636,9 +636,8 @@ function renderIdleWatch(){
 function changeLimit(delta){
   IDLE_LIMIT_MIN=Math.max(3,Math.min(30,IDLE_LIMIT_MIN+delta));
   renderKpis();renderTabs();renderDrivers();renderIdleWatch();updateIdle();
-  if(window.google&&google.script&&google.script.run){
-    google.script.run.setIdleLimit(IDLE_LIMIT_MIN);
-  }
+  fetch(GAS_URL + '?action=setIdleLimit&minutes=' + IDLE_LIMIT_MIN + '&userId=' + encodeURIComponent(MY_UID))
+    .catch(()=>{});
 }
 
 /* อัปเดตตัวจับเวลาเดินเบาทุกวินาที (แถบ + การ์ด + chip + drawer) */
@@ -679,15 +678,21 @@ function tick(){
 }
 tick();setInterval(tick,1000);
 
-/* ============ LIFF + LOAD LIVE DATA ============ */
-const LIFF_ID = '<?= LIFF_ID ?>';   // ฉีดจาก Apps Script template
-let firstLoad = true;
+/* ============ LIFF + LOAD LIVE DATA (โฮสต์บน GitHub → ดึงผ่าน fetch GAS) ============ */
+
+/* ▼▼▼ แก้ 2 ค่านี้ให้เป็นของคุณ ▼▼▼ */
+const LIFF_ID = '2010274217-jaHQFGHG';
+const GAS_URL = 'AKfycbw4UvKuRrAQ_3Ldm8U0VJqfjfBQUSYaTEdrxkdXUVN98G68XseCquhDeXfMgU8cVYaY';
+/* ▲▲▲ GAS_URL = URL /exec ที่ได้ตอน Deploy (ตัวเดียวกับหน้า order/driver) ▲▲▲ */
+
+let MY_UID = '';     // LINE userId ของแอดมินที่เปิดหน้านี้
 
 function renderAll(){
   renderKpis();renderTabs();renderDrivers();renderTasks();renderLegend();renderIdleWatch();updateIdle();
 }
 
 function applyData(res){
+  if(res&&res.denied){ showGate('ไม่มีสิทธิ์เข้าถึง','หน้านี้สำหรับแอดมินเท่านั้น — ติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์'); return; }
   if(!res||!res.ok){ showGate('โหลดข้อมูลไม่สำเร็จ','ลองรีเฟรชอีกครั้ง'); return; }
   drivers = res.drivers||[];
   tasks = res.tasks||[];
@@ -697,15 +702,14 @@ function applyData(res){
   renderAll();
 }
 
-function loadData(){
-  if(window.google&&google.script&&google.script.run){
-    google.script.run
-      .withSuccessHandler(applyData)
-      .withFailureHandler(e=>showGate('เกิดข้อผิดพลาด', e&&e.message||'ลองรีเฟรชอีกครั้ง'))
-      .getDriversData();
-  }else{
-    // เปิดไฟล์นอก LIFF (พรีวิว) → แสดงข้อความ
-    showGate('พรีวิวนอกระบบ','หน้านี้ทำงานเต็มรูปแบบเมื่อเปิดผ่าน LIFF ในแอป LINE');
+async function loadData(){
+  try{
+    const url = GAS_URL + '?action=getDrivers&userId=' + encodeURIComponent(MY_UID) + '&t=' + Date.now();
+    const res = await fetch(url);
+    const json = await res.json();
+    applyData(json);
+  }catch(err){
+    showGate('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้', (err&&err.message)||'ตรวจ GAS_URL แล้วลองใหม่');
   }
 }
 
@@ -721,23 +725,17 @@ async function bootstrap(){
     await liff.init({ liffId: LIFF_ID });
     if(!liff.isLoggedIn()){ liff.login(); return; }
     const profile = await liff.getProfile();
-    google.script.run
-      .withSuccessHandler(v=>{
-        if(v&&v.ok){ loadData(); }
-        else showGate('ไม่มีสิทธิ์เข้าถึง','หน้านี้สำหรับแอดมินเท่านั้น — ติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์');
-      })
-      .withFailureHandler(e=>showGate('ตรวจสิทธิ์ไม่สำเร็จ', e&&e.message||''))
-      .verifyAdmin(profile.userId);
+    MY_UID = profile.userId;
+    loadData();                 // backend ตรวจสิทธิ์แอดมินจาก userId เอง
   }catch(err){
-    // ไม่ได้อยู่ใน LIFF (เช่นเปิดไฟล์ตรง ๆ) → พยายามโหลดผ่าน GAS ตรง
-    loadData();
+    showGate('เปิดผ่าน LINE เท่านั้น','หน้านี้ต้องเปิดผ่านลิงก์ LIFF ในแอป LINE');
   }
 }
 
 // auto-refresh ทุก 30 วินาที
-setInterval(loadData, 30000);
+setInterval(()=>{ if(MY_UID) loadData(); }, 30000);
 
-if(window.liff){ bootstrap(); } else { loadData(); }
+bootstrap();
 </script>
 </body>
 </html>
