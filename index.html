@@ -402,6 +402,8 @@ function matchSearch(d){
 }
 
 function gpsLine(d){
+  const fac = (d.distFactory!=null && d.gps!=='off')
+    ? `<span class="seg"><span class="k">โรงงาน</span><span class="v">${d.distFactory} กม.</span></span>` : '';
   if(d.gps==='off') return `<span class="seg"><span class="k">GPS</span><span class="gps-off">ออฟไลน์</span></span>
     <span class="seg"><span class="k">ping</span><span class="v">${d.ping}</span></span>`;
   if(d.gps==='idling'){
@@ -410,14 +412,14 @@ function gpsLine(d){
         <span style="color:#F0B043">จอดติดเครื่อง</span></span>
       <span class="seg"><span class="k">เดินเบา</span>
         <span class="idle-timer ${lv==='over'?'tm-over':lv==='warn'?'tm-warn':''}" data-id="${d.id}" data-base="${d.idleBase}">${fmtIdle(sec)}</span></span>
-      <span class="seg"><span class="k">@</span><span class="v">${d.loc}</span></span>`;
+      <span class="seg"><span class="k">@</span><span class="v">${d.loc}</span></span>${fac}`;
   }
   const run=d.gps==='run';
   const label=run?'รถวิ่ง':'จอดดับเครื่อง';
   return `<span class="seg"><span class="blip" style="${run?'':'background:#9FB0A8;animation:none'}"></span>
       <span class="${run?'gps-on':'gps-off'}">${label}</span></span>
     <span class="seg"><span class="k">spd</span><span class="v">${d.speed} km/h</span></span>
-    <span class="seg"><span class="k">@</span><span class="v">${d.loc}</span></span>
+    <span class="seg"><span class="k">@</span><span class="v">${d.loc}</span></span>${fac}
     <span class="seg"><span class="k">ping</span><span class="v">${d.ping}</span></span>`;
 }
 
@@ -539,10 +541,11 @@ function openDrawer(id){
    <div class="dsec">
      <h3>${ICON.pin.replace('class="ic"','class="ic" style="width:13px;height:13px"')} สถานะรถเรียลไทม์ <span class="src src-gps">GPS API</span></h3>
      <div class="kv">
-       <div class="item"><div class="kk">สถานะรถ</div><div class="vv">${d.gps==='run'?'🟢 รถวิ่ง':d.gps==='idle'?'⚪ รถจอด':'🔴 ออฟไลน์'}</div></div>
+       <div class="item"><div class="kk">สถานะรถ</div><div class="vv">${d.gps==='run'?'🟢 รถวิ่ง':d.gps==='idling'?'🟠 จอดติดเครื่อง':d.gps==='park'?'⚪ จอดดับเครื่อง':'🔴 ออฟไลน์'}</div></div>
        <div class="item"><div class="kk">ความเร็ว</div><div class="vv mono">${d.speed} km/h</div></div>
        <div class="item"><div class="kk">ตำแหน่ง</div><div class="vv" style="font-size:13px">${d.loc}</div></div>
        <div class="item"><div class="kk">จังหวัด</div><div class="vv" style="font-size:13px">${d.prov}</div></div>
+       ${(d.distFactory!=null&&d.gps!=='off')?`<div class="item"><div class="kk">ห่างโรงงาน</div><div class="vv mono">${d.distFactory} กม.</div></div>`:''}
        <div class="item"><div class="kk">ping ล่าสุด</div><div class="vv mono">${d.ping}</div></div>
      </div>
    </div>
@@ -625,7 +628,7 @@ function renderIdleWatch(){
         return `<div class="iw-row" onclick="openDrawer('${d.id}')">
           <span class="rdot" style="background:${dot}"></span>
           <span class="rname">${d.name}</span>
-          <span class="rmeta"><span class="pl">${d.plate}</span> · ${d.loc}${d.order?' · '+d.jobStatus:''}</span>
+          <span class="rmeta"><span class="pl">${d.plate}</span> · ${d.loc}${d.distFactory!=null?' · ห่างโรงงาน '+d.distFactory+' กม.':''}${d.order?' · '+d.jobStatus:''}</span>
           <span class="iw-timer lv-${lv}" data-id="${d.id}" data-base="${d.idleBase}">${fmtIdle(sec)}</span>
           <button class="rcall" onclick="event.stopPropagation()">โทรเตือน</button>
         </div>`;
