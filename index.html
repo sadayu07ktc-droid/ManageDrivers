@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>จัดการคนขับ · คอนโซลแอดมิน</title>
+<script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EEF2EE;
+    --surface:#FFFFFF;
+    --surface-2:#F6F8F5;
+    --ink:#15241D;
+    --ink-soft:#5B6B63;
+    --ink-faint:#8A988F;
+    --line:#E1E7E0;
+    --line-strong:#CDD6CD;
+    --pine:#0E7C66;
+    --pine-deep:#0A5C4C;
+    --gold:#B7892A;
+    /* status */
+    --avail:#2E9E5B;     --avail-bg:#E8F5EC;
+    --onjob:#2563EB;     --onjob-bg:#E8EFFD;
+    --idle:#7A8A80;      --idle-bg:#EEF1EE;
+    --leave:#7C5CC4;     --leave-bg:#F0EBFA;
+    --repair:#C0392B;    --repair-bg:#FBEAE7;
+    --alert:#E0820B;     --alert-bg:#FCF0DD;
+    --shadow:0 1px 2px rgba(21,36,29,.04), 0 8px 24px rgba(21,36,29,.06);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:'IBM Plex Sans Thai',system-ui,sans-serif;
+    background:var(--bg);color:var(--ink);
+    line-height:1.5;-webkit-font-smoothing:antialiased;
+    padding-bottom:64px;
+  }
+  .mono{font-family:'IBM Plex Mono',monospace;font-feature-settings:"tnum"}
+
+  /* ---------- Top bar ---------- */
+  header{
+    position:sticky;top:0;z-index:40;
+    background:var(--pine-deep);
+    color:#EAF3EF;
+    border-bottom:3px solid var(--gold);
+  }
+  .bar{max-width:1320px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .brand{display:flex;flex-direction:column;line-height:1.15}
+  .brand .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8FC9B9;font-weight:600}
+  .brand h1{font-size:21px;font-weight:700;letter-spacing:-.01em}
+  .bar .spacer{flex:1}
+  .clock{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+  .clock .time{font-size:20px;font-weight:600}
+  .clock .date{font-size:12px;color:#9FCFC1}
+  .live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:#BFE3D8;font-weight:500;
+    padding:5px 11px;border:1px solid rgba(143,201,185,.35);border-radius:999px}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:#4ADE80;box-shadow:0 0 0 0 rgba(74,222,128,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(74,222,128,.5)}70%{box-shadow:0 0 0 7px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+
+  main{max-width:1320px;margin:0 auto;padding:22px}
+
+  /* ---------- Idle watch banner (เครื่องเดินเบา) ---------- */
+  .idlewatch{background:linear-gradient(180deg,#FFF9EC,#FCF0DD);border:1px solid #F0D89B;
+    border-left:5px solid var(--alert);border-radius:14px;margin-bottom:22px;box-shadow:var(--shadow);overflow:hidden}
+  .iw-head{display:flex;align-items:center;gap:14px;padding:13px 17px;flex-wrap:wrap;border-bottom:1px solid #F0D89B}
+  .iw-title{font-size:15px;font-weight:700;color:#7a4e06;display:flex;align-items:center;gap:9px}
+  .iw-title .ic{color:var(--alert)}
+  .iw-stat{font-size:13px;color:#8a5a08}
+  .iw-stat b{font-family:'IBM Plex Mono',monospace;font-size:16px}
+  .iw-stat .over{color:var(--repair)}
+  .iw-spacer{flex:1}
+  .iw-limit{display:flex;align-items:center;gap:6px;font-size:12.5px;color:#7a4e06;
+    background:#fff;border:1px solid #EAD08C;border-radius:9px;padding:4px 8px}
+  .iw-limit button{width:22px;height:22px;border-radius:6px;border:1px solid #EAD08C;background:#FFF9EC;color:#7a4e06;
+    font-size:15px;font-weight:700;cursor:pointer;line-height:1;display:grid;place-items:center}
+  .iw-limit button:hover{background:#FCF0DD}
+  .iw-limit .lim{font-family:'IBM Plex Mono',monospace;font-weight:700;min-width:18px;text-align:center}
+  .iw-list{display:flex;flex-direction:column}
+  .iw-row{display:flex;align-items:center;gap:12px;padding:11px 17px;border-bottom:1px solid #F4E3BC;cursor:pointer;transition:background .12s}
+  .iw-row:last-child{border-bottom:none}
+  .iw-row:hover{background:#FFFDF6}
+  .iw-row .rdot{width:9px;height:9px;border-radius:50%;flex:none}
+  .iw-row .rname{font-weight:600;font-size:14px;min-width:130px}
+  .iw-row .rmeta{font-size:12px;color:var(--ink-soft);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .iw-row .rmeta .pl{font-family:'IBM Plex Mono',monospace;color:var(--ink-faint)}
+  .iw-timer{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:16px;padding:3px 10px;border-radius:8px;white-space:nowrap}
+  .lv-over{background:var(--repair-bg);color:var(--repair)}
+  .lv-warn{background:var(--alert-bg);color:#9a5a06}
+  .lv-ok{background:#EEF1EE;color:var(--idle)}
+  .iw-row .rcall{font-size:12px;font-weight:600;border:1px solid #EAD08C;background:#fff;color:#7a4e06;border-radius:8px;padding:5px 11px;cursor:pointer}
+  .iw-row .rcall:hover{background:#FCF0DD}
+
+  /* ---------- KPI strip ---------- */
+  .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px}
+  @media(max-width:1080px){.kpis{grid-template-columns:repeat(4,1fr)}}
+  @media(max-width:640px){.kpis{grid-template-columns:repeat(2,1fr)}}
+  .kpi{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 15px;box-shadow:var(--shadow);
+    cursor:pointer;position:relative;overflow:hidden;transition:transform .14s ease,box-shadow .14s ease}
+  .kpi:hover{transform:translateY(-2px);box-shadow:0 2px 4px rgba(21,36,29,.06),0 14px 30px rgba(21,36,29,.1)}
+  .kpi.active{outline:2px solid var(--pine);outline-offset:-2px}
+  .kpi .spine{position:absolute;left:0;top:0;bottom:0;width:4px}
+  .kpi .label{font-size:12.5px;color:var(--ink-soft);font-weight:500;display:flex;align-items:center;gap:6px}
+  .kpi .num{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:4px}
+  .kpi .sub{font-size:11px;color:var(--ink-faint)}
+  .ic{width:15px;height:15px;flex:none;stroke-width:2}
+
+  /* ---------- Layout ---------- */
+  .grid{display:grid;grid-template-columns:1fr 340px;gap:20px;align-items:start}
+  @media(max-width:1080px){.grid{grid-template-columns:1fr}}
+
+  .panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow)}
+  .panel-head{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px}
+  .panel-head h2{font-size:15px;font-weight:700;letter-spacing:.01em}
+  .panel-head .count{font-size:12px;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace}
+  .panel-head .spacer{flex:1}
+
+  /* search + filter */
+  .search{position:relative}
+  .search input{font-family:inherit;font-size:13px;border:1px solid var(--line-strong);background:var(--surface-2);
+    border-radius:10px;padding:8px 12px 8px 32px;width:210px;color:var(--ink);outline:none;transition:border .14s}
+  .search input:focus{border-color:var(--pine);background:#fff}
+  .search .ic{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--ink-faint)}
+  .tabs{display:flex;gap:6px;flex-wrap:wrap;padding:13px 18px;border-bottom:1px solid var(--line);background:var(--surface-2);border-radius:0}
+  .tab{font-family:inherit;font-size:12.5px;font-weight:500;border:1px solid var(--line-strong);background:#fff;color:var(--ink-soft);
+    padding:6px 13px;border-radius:999px;cursor:pointer;transition:all .12s;display:inline-flex;align-items:center;gap:6px}
+  .tab:hover{border-color:var(--pine);color:var(--pine)}
+  .tab.on{background:var(--pine);border-color:var(--pine);color:#fff}
+  .tab .pip{width:7px;height:7px;border-radius:50%}
+
+  /* driver cards */
+  .drivers{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;padding:16px 18px}
+  @media(max-width:640px){.drivers{grid-template-columns:1fr}}
+  .card{position:relative;border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 14px 12px 16px;
+    cursor:pointer;transition:transform .12s,box-shadow .12s,border-color .12s;overflow:hidden}
+  .card:hover{transform:translateY(-2px);box-shadow:0 10px 24px rgba(21,36,29,.09);border-color:var(--line-strong)}
+  .card .edge{position:absolute;left:0;top:0;bottom:0;width:5px}
+  .card-top{display:flex;align-items:flex-start;gap:11px}
+  .avatar{width:42px;height:42px;border-radius:11px;flex:none;display:grid;place-items:center;font-weight:700;font-size:15px;color:#fff}
+  .who{flex:1;min-width:0}
+  .who .name{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .who .meta{font-size:11.5px;color:var(--ink-faint);display:flex;gap:8px;align-items:center;margin-top:1px}
+  .badge{font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .badge .pip{width:6px;height:6px;border-radius:50%}
+
+  /* telemetry console line — the signature */
+  .telem{margin-top:11px;background:#10211B;border-radius:9px;padding:8px 10px;color:#BFE3D8;
+    font-family:'IBM Plex Mono',monospace;font-size:11.5px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:center}
+  .telem .seg{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+  .telem .k{color:#5E8A7C}
+  .telem .v{color:#EAF3EF}
+  .telem .gps-on{color:#6EE7A8}
+  .telem .gps-off{color:#9FB0A8}
+  .telem .idle-timer{color:#F0B043;font-weight:600}
+  .telem .idle-timer.tm-warn{color:#F0B043}
+  .telem .idle-timer.tm-over{color:#FF8B7A;background:rgba(255,90,70,.16);padding:1px 6px;border-radius:5px}
+  .telem .blip{width:6px;height:6px;border-radius:50%;background:#6EE7A8;animation:pulse 2s infinite}
+
+  .job{margin-top:10px;font-size:12.5px;color:var(--ink-soft);display:flex;align-items:center;gap:7px}
+  .job .ord{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--pine);font-weight:600}
+  .alerts{margin-top:9px;display:flex;flex-wrap:wrap;gap:6px}
+  .chip{font-size:11px;font-weight:600;padding:3px 9px;border-radius:7px;display:inline-flex;align-items:center;gap:5px}
+  .chip.warn{background:var(--alert-bg);color:#9a5a06}
+  .chip.danger{background:var(--repair-bg);color:#a02d20}
+  .chip.idle-chip{background:#EEF1EE;color:var(--idle)}
+  .chip.idle-chip.warn{background:var(--alert-bg);color:#9a5a06}
+  .chip.idle-chip.over{background:var(--repair-bg);color:var(--repair)}
+
+  /* ---------- side: action queue ---------- */
+  .side{display:flex;flex-direction:column;gap:20px}
+  .task{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+  .task:last-child{border-bottom:none}
+  .task .tic{width:34px;height:34px;border-radius:9px;flex:none;display:grid;place-items:center}
+  .task .body{flex:1;min-width:0}
+  .task .t1{font-size:13.5px;font-weight:600}
+  .task .t2{font-size:12px;color:var(--ink-soft);margin-top:1px}
+  .task .t3{font-size:11px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace;margin-top:3px}
+  .task-actions{display:flex;gap:7px;margin-top:8px}
+  .btn{font-family:inherit;font-size:12px;font-weight:600;border-radius:8px;padding:5px 12px;cursor:pointer;border:1px solid transparent;transition:filter .12s}
+  .btn:hover{filter:brightness(.96)}
+  .btn-ok{background:var(--pine);color:#fff}
+  .btn-ghost{background:#fff;border-color:var(--line-strong);color:var(--ink-soft)}
+  .empty{padding:26px 18px;text-align:center;color:var(--ink-faint);font-size:13px}
+
+  /* legend */
+  .legend{padding:14px 18px;font-size:12px;color:var(--ink-soft)}
+  .legend .row{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+  .legend .row:last-child{margin-bottom:0}
+  .legend .sw{width:11px;height:11px;border-radius:3px;flex:none}
+
+  /* ---------- detail drawer ---------- */
+  .scrim{position:fixed;inset:0;background:rgba(15,30,24,.42);backdrop-filter:blur(2px);opacity:0;pointer-events:none;transition:opacity .2s;z-index:60}
+  .scrim.show{opacity:1;pointer-events:auto}
+  .drawer{position:fixed;top:0;right:0;height:100%;width:min(440px,92vw);background:var(--surface);z-index:70;
+    box-shadow:-12px 0 40px rgba(15,30,24,.18);transform:translateX(100%);transition:transform .24s cubic-bezier(.4,0,.2,1);overflow-y:auto}
+  .drawer.show{transform:translateX(0)}
+  .dh{padding:20px 22px;background:var(--pine-deep);color:#EAF3EF;position:sticky;top:0;z-index:2}
+  .dh .x{position:absolute;top:18px;right:18px;background:rgba(255,255,255,.12);border:none;color:#fff;width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:18px;line-height:1}
+  .dh .dname{font-size:20px;font-weight:700;margin-top:2px}
+  .dh .dmeta{font-size:12.5px;color:#9FCFC1;font-family:'IBM Plex Mono',monospace;margin-top:3px}
+  .dsec{padding:18px 22px;border-bottom:1px solid var(--line)}
+  .dsec h3{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;margin-bottom:11px;display:flex;align-items:center;gap:7px}
+  .dsec h3 .src{margin-left:auto;font-size:10px;letter-spacing:.04em;text-transform:none;padding:2px 7px;border-radius:5px;font-weight:600}
+  .src-drive{background:#E8F5EC;color:#1f7a44}
+  .src-gps{background:#E8EFFD;color:#1d4fb8}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:11px 14px}
+  .kv .item .kk{font-size:11px;color:var(--ink-faint)}
+  .kv .item .vv{font-size:14px;font-weight:600;margin-top:1px}
+  .kv .item .vv.mono{font-size:13px}
+  .timeline{display:flex;flex-direction:column;gap:0}
+  .tl{display:flex;gap:11px;align-items:flex-start;position:relative;padding-bottom:14px}
+  .tl:last-child{padding-bottom:0}
+  .tl .node{width:13px;height:13px;border-radius:50%;border:3px solid var(--pine);background:#fff;flex:none;margin-top:2px;z-index:1}
+  .tl.done .node{background:var(--pine)}
+  .tl.pending .node{border-color:var(--line-strong)}
+  .tl .line{position:absolute;left:6px;top:15px;bottom:0;width:2px;background:var(--line)}
+  .tl:last-child .line{display:none}
+  .tl .lab{font-size:13px;font-weight:600}
+  .tl .tm{font-size:12px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace}
+  .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .metric{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .metric .mn{font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace}
+  .metric .ml{font-size:11px;color:var(--ink-soft);margin-top:2px}
+  .metric.bad .mn{color:var(--repair)}
+  .dactions{padding:18px 22px;display:flex;gap:10px}
+  .dactions .btn{flex:1;justify-content:center;padding:11px;font-size:13px;display:flex;align-items:center;gap:7px}
+
+  .foot{max-width:1320px;margin:18px auto 0;padding:0 22px;font-size:11.5px;color:var(--ink-faint);line-height:1.7}
+  .foot b{color:var(--ink-soft)}
+
+  /* gate overlay */
+  #gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:grid;place-items:center;text-align:center;padding:30px}
+  #gate .box{max-width:340px}
+  #gate .ring{width:46px;height:46px;border:4px solid var(--line-strong);border-top-color:var(--pine);border-radius:50%;margin:0 auto 18px;animation:spin 1s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  #gate h2{font-size:18px;font-weight:700;margin-bottom:6px}
+  #gate p{font-size:13.5px;color:var(--ink-soft)}
+  #gate .deny-ic{font-size:40px;margin-bottom:10px}
+</style>
+</head>
+<body>
+
+<div id="gate"><div class="box"><div class="ring"></div><h2>กำลังโหลด...</h2><p>ตรวจสอบสิทธิ์แอดมินและดึงข้อมูลคนขับ</p></div></div>
+
+<header>
+  <div class="bar">
+    <div class="brand">
+      <span class="eyebrow">SSB SMART SUPPLY · MANAGE DRIVERS</span>
+      <h1>จัดการคนขับ</h1>
+    </div>
+    <div class="spacer"></div>
+    <span class="live"><span class="dot"></span>เชื่อมต่อ GPS เรียลไทม์</span>
+    <div class="clock">
+      <span class="time mono" id="clock">--:--:--</span>
+      <span class="date" id="dateth">—</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- KPI strip -->
+  <div class="kpis" id="kpis"></div>
+
+  <!-- Idle watch (เครื่องเดินเบา) — ผู้บริหารจับตาเป็นพิเศษ -->
+  <div class="idlewatch" id="idlewatch" style="display:none"></div>
+
+  <div class="grid">
+    <!-- LEFT: driver console -->
+    <section class="panel">
+      <div class="panel-head">
+        <h2>คนขับทั้งหมด</h2>
+        <span class="count" id="resultCount"></span>
+        <div class="spacer"></div>
+        <div class="search">
+          <svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="search" type="text" placeholder="ค้นชื่อ / รหัส / ทะเบียน">
+        </div>
+      </div>
+      <div class="tabs" id="tabs"></div>
+      <div class="drivers" id="drivers"></div>
+    </section>
+
+    <!-- RIGHT: action queue + legend -->
+    <aside class="side">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>ต้องดำเนินการ</h2>
+          <span class="count" id="taskCount"></span>
+        </div>
+        <div id="tasks"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head"><h2>สถานะคนขับ</h2></div>
+        <div class="legend" id="legend"></div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="foot">
+    <b>แหล่งข้อมูล:</b> สถานะการจ้าง · งาน · ใบลา · แจ้งซ่อม จากชีต SSB SMART SUPPLY (<span class="mono">DATA_DRIVER · STATUS · LOG_Leave · LOG_Repair</span>) &nbsp;·&nbsp;
+    สถานะรถ · ความเร็ว · พิกัด · <b>เครื่องเดินเบา</b> · ขับเกินเวลา · ไม่รูดบัตร จาก DTC GPS Monitor API (<span class="mono">status_name_th · gps_speed · total_idle_time · count_of_idling · count_of_idling_over_time_limit · count_of_drive_overtime</span>)
+    <br>เชื่อม 2 แหล่งด้วยฟิลด์ <b>ทะเบียนรถ ↔ truck_license</b> และ <b>LINE UID ↔ driver_card_id</b> · ต้นแบบสำหรับ LIFF หน้าแอดมิน
+  </div>
+</main>
+
+<!-- detail drawer -->
+<div class="scrim" id="scrim" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer"></div>
+
+<script>
+/* ============ DATA (จากชีตจริง + จำลองสถานะ ณ เวลาปัจจุบัน) ============ */
+const ICON = {
+  users:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  check:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 6 9 17l-5-5"/></svg>',
+  truck:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 18V6H2v12h2"/><path d="M14 9h4l4 4v5h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>',
+  leave:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>',
+  wrench:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 0 0 5.4-5.4l-2.1 2.1-2.1-2.1z"/></svg>',
+  alert:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M10.3 3.7 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.7a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
+  pin:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>',
+  fuel:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M3 22h12V4a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v18Z"/><path d="M3 10h12"/><path d="M15 7h2a2 2 0 0 1 2 2v7a2 2 0 0 0 2 2 2 2 0 0 0 2-2V9.5L19 6"/></svg>',
+  phone:'<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2Z"/></svg>'
+};
+
+const STATUS = {
+  avail:{th:'ว่าง',c:'--avail',bg:'--avail-bg'},
+  onjob:{th:'ติดงาน',c:'--onjob',bg:'--onjob-bg'},
+  leave:{th:'ลา',c:'--leave',bg:'--leave-bg'},
+  repair:{th:'แจ้งซ่อม',c:'--repair',bg:'--repair-bg'}
+};
+
+/* ข้อมูลจริงโหลดจากหลังบ้าน (google.script.run.getDriversData) */
+let drivers = [];
+let tasks = [];
+let IDLE_LIMIT_MIN = 10;
+let SERVER_SKEW = 0;            // serverNow - Date.now() (ปรับให้นาฬิกาตรงกับเซิร์ฟเวอร์)
+const nowMs = () => Date.now() + SERVER_SKEW;
+const idleSecNow = d => (d.gps==='idling' && d.idleStartMs) ? Math.max(0,Math.round((nowMs()-d.idleStartMs)/1000)) : 0;
+const fmtIdle = s => Math.floor(s/60)+':'+String(s%60).padStart(2,'0');
+const idleLevel = sec => { const r=sec/(IDLE_LIMIT_MIN*60); return r>=1?'over':r>=0.7?'warn':'ok'; };
+
+/* ============ RENDER ============ */
+const cv = v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const initials = n=>n.replace(/^(นาย|นาง|น\.ส\.|MR\.|MS\.)/i,'').trim().charAt(0);
+const avatarColor = s=>cv(STATUS[s].c);
+
+let filter='all', q='';
+
+function counts(){
+  const c={all:drivers.length,avail:0,onjob:0,leave:0,repair:0,alert:0,idle:0,idleOver:0};
+  drivers.forEach(d=>{
+    c[d.status]++;
+    if(d.gps==='idling'){c.idle++; if(idleSecNow(d)>=IDLE_LIMIT_MIN*60) c.idleOver++;}
+    if((d.alerts&&d.alerts.length)||(d.gps==='idling'&&idleSecNow(d)>=IDLE_LIMIT_MIN*60)) c.alert++;
+  });
+  return c;
+}
+
+function renderKpis(){
+  const c=counts();
+  const defs=[
+    {k:'all',label:'คนขับทั้งหมด',icon:ICON.users,color:'--pine',sub:'ในระบบ'},
+    {k:'avail',label:'ว่าง',icon:ICON.check,color:'--avail',sub:'พร้อมรับงาน'},
+    {k:'onjob',label:'ติดงาน',icon:ICON.truck,color:'--onjob',sub:'กำลังวิ่งงาน'},
+    {k:'idle',label:'เครื่องเดินเบา',icon:ICON.fuel,color:'--alert',sub:`เกินเกณฑ์ ${c.idleOver} คัน`},
+    {k:'leave',label:'ลา',icon:ICON.leave,color:'--leave',sub:'วันนี้'},
+    {k:'repair',label:'แจ้งซ่อม',icon:ICON.wrench,color:'--repair',sub:'รถเข้าอู่'},
+    {k:'alert',label:'แจ้งเตือน',icon:ICON.alert,color:'--repair',sub:'ต้องตรวจสอบ'}
+  ];
+  document.getElementById('kpis').innerHTML=defs.map(d=>`
+    <div class="kpi ${filter===d.k?'active':''}" onclick="setFilter('${d.k}')">
+      <div class="spine" style="background:${cv(d.color)}"></div>
+      <div class="label">${d.icon.replace('class="ic"',`class="ic" style="color:${cv(d.color)}"`)} ${d.label}</div>
+      <div class="num" style="color:${cv(d.color)}">${c[d.k]}</div>
+      <div class="sub">${d.sub}</div>
+    </div>`).join('');
+}
+
+function renderTabs(){
+  const c=counts();
+  const defs=[['all','ทั้งหมด',null],['avail','ว่าง','--avail'],['onjob','ติดงาน','--onjob'],
+    ['idle','เดินเบา','--alert'],['leave','ลา','--leave'],['repair','ซ่อม','--repair'],['alert','แจ้งเตือน','--repair']];
+  document.getElementById('tabs').innerHTML=defs.map(([k,l,col])=>`
+    <button class="tab ${filter===k?'on':''}" onclick="setFilter('${k}')">
+      ${col?`<span class="pip" style="background:${cv(col)}"></span>`:''}${l}
+      <span style="opacity:.6">${c[k]}</span>
+    </button>`).join('');
+}
+
+function matchFilter(d){
+  if(filter==='alert') return (d.alerts&&d.alerts.length)||(d.gps==='idling'&&idleSecNow(d)>=IDLE_LIMIT_MIN*60);
+  if(filter==='idle') return d.gps==='idling';
+  if(filter==='all') return true;
+  return d.status===filter;
+}
+function matchSearch(d){
+  if(!q) return true;
+  const hay=(d.id+' '+d.name+' '+(d.alias||'')+' '+d.plate).toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+
+function gpsLine(d){
+  if(d.gps==='off') return `<span class="seg"><span class="k">GPS</span><span class="gps-off">ออฟไลน์</span></span>
+    <span class="seg"><span class="k">ping</span><span class="v">${d.ping}</span></span>`;
+  if(d.gps==='idling'){
+    const sec=idleSecNow(d), lv=idleLevel(sec);
+    return `<span class="seg"><span class="blip" style="background:#E0820B"></span>
+        <span style="color:#F0B043">จอดติดเครื่อง</span></span>
+      <span class="seg"><span class="k">เดินเบา</span>
+        <span class="idle-timer ${lv==='over'?'tm-over':lv==='warn'?'tm-warn':''}" data-id="${d.id}" data-base="${d.idleBase}">${fmtIdle(sec)}</span></span>
+      <span class="seg"><span class="k">@</span><span class="v">${d.loc}</span></span>`;
+  }
+  const run=d.gps==='run';
+  const label=run?'รถวิ่ง':'จอดดับเครื่อง';
+  return `<span class="seg"><span class="blip" style="${run?'':'background:#9FB0A8;animation:none'}"></span>
+      <span class="${run?'gps-on':'gps-off'}">${label}</span></span>
+    <span class="seg"><span class="k">spd</span><span class="v">${d.speed} km/h</span></span>
+    <span class="seg"><span class="k">@</span><span class="v">${d.loc}</span></span>
+    <span class="seg"><span class="k">ping</span><span class="v">${d.ping}</span></span>`;
+}
+
+function renderDrivers(){
+  const list=drivers.filter(d=>matchFilter(d)&&matchSearch(d));
+  document.getElementById('resultCount').textContent=`${list.length} / ${drivers.length} คน`;
+  const el=document.getElementById('drivers');
+  if(!list.length){el.innerHTML=`<div class="empty" style="grid-column:1/-1">ไม่พบคนขับตามเงื่อนไข</div>`;return;}
+  el.innerHTML=list.map((d,i)=>{
+    const st=STATUS[d.status];
+    return `<div class="card" onclick="openDrawer('${d.id}')">
+      <div class="edge" style="background:${cv(st.c)}"></div>
+      <div class="card-top">
+        <div class="avatar" style="background:${avatarColor(d.status)}">${initials(d.name)}</div>
+        <div class="who">
+          <div class="name">${d.name}</div>
+          <div class="meta"><span class="mono">${d.id}</span> · <span class="mono">${d.plate}</span></div>
+        </div>
+        <span class="badge" style="background:${cv(st.bg)};color:${cv(st.c)}">
+          <span class="pip" style="background:${cv(st.c)}"></span>${st.th}</span>
+      </div>
+      <div class="telem">${gpsLine(d)}</div>
+      ${d.order?`<div class="job">${ICON.pin.replace('class="ic"','class="ic" style="color:var(--ink-faint);width:14px;height:14px"')}
+        <span class="ord">${d.order}</span> · ${d.garden} · <b style="color:var(--ink-soft)">${d.jobStatus}</b>
+        ${d.viaRamp?`<span style="margin-left:auto;font-size:10.5px;font-weight:600;color:var(--pine);background:#EAF3EF;padding:2px 7px;border-radius:6px;white-space:nowrap">ผ่านลานเท</span>`:''}</div>`:''}
+      ${d.leaveType?`<div class="job">${ICON.leave.replace('class="ic"','class="ic" style="color:var(--leave);width:14px;height:14px"')} ${d.leaveType} · ${d.leaveRange}</div>`:''}
+      ${d.repairIssue?`<div class="job">${ICON.wrench.replace('class="ic"','class="ic" style="color:var(--repair);width:14px;height:14px"')} ${d.repairIssue}</div>`:''}
+      ${(d.gps==='idling'||(d.alerts&&d.alerts.length))?`<div class="alerts">
+        ${d.gps==='idling'?`<span class="chip idle-chip" data-id="${d.id}" data-base="${d.idleBase}">${ICON.fuel.replace('class="ic"','class="ic" style="width:12px;height:12px"')} เครื่องเดินเบา <span class="ct mono">${fmtIdle(idleSecNow(d))}</span></span>`:''}
+        ${(d.alerts||[]).map(a=>`<span class="chip ${a.k}">${ICON.alert.replace('class="ic"','class="ic" style="width:12px;height:12px"')} ${a.t}</span>`).join('')}
+      </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderTasks(){
+  document.getElementById('taskCount').textContent=`${tasks.length} รายการ`;
+  const map={repair:{ic:ICON.wrench,c:'--repair',bg:'--repair-bg'},
+            leave:{ic:ICON.leave,c:'--leave',bg:'--leave-bg'},
+            idle:{ic:ICON.fuel,c:'--alert',bg:'--alert-bg'},
+            alert:{ic:ICON.alert,c:'--repair',bg:'--repair-bg'}};
+  const el=document.getElementById('tasks');
+  if(!tasks.length){el.innerHTML=`<div class="empty">ไม่มีรายการค้าง 🎉</div>`;return;}
+  el.innerHTML=tasks.map(t=>{
+    const m=map[t.kind];
+    return `<div class="task">
+      <div class="tic" style="background:${cv(m.bg)};color:${cv(m.c)}">${m.ic}</div>
+      <div class="body">
+        <div class="t1">${t.driver}</div>
+        <div class="t2">${t.detail}</div>
+        <div class="t3">${t.ref}${t.plate?' · '+t.plate:''}</div>
+        <div class="task-actions">
+          <button class="btn btn-ok">${t.kind==='alert'||t.kind==='idle'?'โทรเตือนคนขับ':'อนุมัติ'}</button>
+          <button class="btn btn-ghost">${t.kind==='alert'||t.kind==='idle'?'ดูแผนที่':'รายละเอียด'}</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderLegend(){
+  const rows=[['avail','ว่าง — พร้อมรับงาน'],['onjob','ติดงาน — กำลังวิ่งงานอยู่'],
+    ['leave','ลา — ลาตามใบลาที่อนุมัติ'],['repair','แจ้งซ่อม — รถเข้าอู่']];
+  document.getElementById('legend').innerHTML=rows.map(([k,l])=>
+    `<div class="row"><span class="sw" style="background:${cv(STATUS[k].c)}"></span>${l}</div>`).join('')+
+    `<div class="row"><span class="sw" style="background:${cv('--alert')}"></span>เครื่องเดินเบา — จอดไม่ดับเครื่อง</div>`+
+    `<div class="row" style="margin-top:9px;padding-top:9px;border-top:1px dashed var(--line)"><span class="sw" style="background:#10211B"></span>แถบดำ = สถานะรถสดจาก GPS</div>`+
+    `<div class="row" style="font-size:11px;color:var(--ink-faint)">รถวิ่ง · จอดติดเครื่อง · จอดดับเครื่อง · ออฟไลน์</div>`;
+}
+
+function setFilter(f){filter=f;renderKpis();renderTabs();renderDrivers();updateIdle();}
+
+/* สร้างไทม์ไลน์ตามประเภทงาน: ผ่านลานเท = 6 สเต็ป, งานตรง = 4 สเต็ป */
+function buildTimeline(d){
+  const t=d.times||{};
+  const node=(lab,tm)=>[lab,tm||'—',tm?1:0];
+  if(d.viaRamp){
+    return [
+      node('รับงาน',t.accept),
+      node('เริ่มงาน · ออกรถ',t.start),
+      node('ถึงลานเท · วางกระบะ',t.dropBin),
+      node('ถึงสวน/ลูกค้า · รับปาล์ม',t.arrive),
+      node('ขากลับ · รับกระบะที่ลานเท',t.returnBin),
+      node('เสร็จงาน · ส่งปลายทาง',t.done)
+    ];
+  }
+  return [
+    node('รับงาน',t.accept),
+    node('เริ่มงาน',t.start),
+    node('ถึงลูกค้า',t.arrive),
+    node('เสร็จงาน',t.done)
+  ];
+}
+
+/* ---- drawer ---- */
+function openDrawer(id){
+  const d=drivers.find(x=>x.id===id);if(!d)return;
+  const st=STATUS[d.status];
+  const tl=d.order?buildTimeline(d):null;
+  const html=`
+   <div class="dh">
+     <button class="x" onclick="closeDrawer()">×</button>
+     <span class="badge" style="background:rgba(255,255,255,.15);color:#fff">
+       <span class="pip" style="background:${cv(st.c)}"></span>${st.th}</span>
+     <div class="dname">${d.name}</div>
+     <div class="dmeta">${d.id} · ทะเบียน ${d.plate}${d.alias?' · ('+d.alias+')':''}</div>
+   </div>
+
+   <div class="dsec">
+     <h3>${ICON.users.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ข้อมูลคนขับ <span class="src src-drive">DRIVE</span></h3>
+     <div class="kv">
+       <div class="item"><div class="kk">เบอร์โทร</div><div class="vv mono">${d.phone}</div></div>
+       <div class="item"><div class="kk">ประเภทรถ</div><div class="vv">พ่วง (Trailer)</div></div>
+       <div class="item"><div class="kk">ทะเบียน</div><div class="vv mono">${d.plate}</div></div>
+       <div class="item"><div class="kk">สถานะการจ้าง</div><div class="vv" style="color:${cv(st.c)}">${st.th}</div></div>
+     </div>
+   </div>
+
+   <div class="dsec">
+     <h3>${ICON.pin.replace('class="ic"','class="ic" style="width:13px;height:13px"')} สถานะรถเรียลไทม์ <span class="src src-gps">GPS API</span></h3>
+     <div class="kv">
+       <div class="item"><div class="kk">สถานะรถ</div><div class="vv">${d.gps==='run'?'🟢 รถวิ่ง':d.gps==='idle'?'⚪ รถจอด':'🔴 ออฟไลน์'}</div></div>
+       <div class="item"><div class="kk">ความเร็ว</div><div class="vv mono">${d.speed} km/h</div></div>
+       <div class="item"><div class="kk">ตำแหน่ง</div><div class="vv" style="font-size:13px">${d.loc}</div></div>
+       <div class="item"><div class="kk">จังหวัด</div><div class="vv" style="font-size:13px">${d.prov}</div></div>
+       <div class="item"><div class="kk">ping ล่าสุด</div><div class="vv mono">${d.ping}</div></div>
+     </div>
+   </div>
+
+   ${d.order&&tl?`<div class="dsec">
+     <h3>${ICON.truck.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ไทม์ไลน์งานปัจจุบัน <span class="src src-drive">DRIVE</span></h3>
+     <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${d.order} · ${d.garden}</div>
+     ${d.viaRamp?`<div style="display:inline-flex;align-items:center;gap:7px;background:#EAF3EF;color:var(--pine-deep);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">${ICON.pin.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ผ่านลานเท · ${d.rampName}</div>`:`<div style="display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);color:var(--ink-soft);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">งานตรง · ไม่ผ่านลานเท</div>`}
+     <div class="timeline">${tl.map(([lab,tm,done])=>`
+       <div class="tl ${done?'done':'pending'}"><div class="line"></div><div class="node"></div>
+         <div><div class="lab">${lab}</div><div class="tm">${tm}</div></div></div>`).join('')}</div>
+   </div>`:''}
+
+   <div class="dsec" style="background:#FFFDF6">
+     <h3>${ICON.fuel.replace('class="ic"','class="ic" style="width:13px;height:13px;color:var(--alert)"')} เครื่องเดินเบา (จอดไม่ดับเครื่อง) <span class="src src-gps">GPS API</span></h3>
+     ${d.gps==='idling'?`<div style="background:${idleLevel(idleSecNow(d))==='over'?'var(--repair-bg)':'var(--alert-bg)'};border-radius:10px;padding:11px 13px;margin-bottom:${d.rep?'12px':'0'};display:flex;align-items:center;gap:10px">
+        <span style="font-size:12px;color:var(--ink-soft)">ติดเครื่องค้างขณะนี้</span>
+        <span class="idle-timer mono" data-id="${d.id}" style="font-size:22px;font-weight:700;margin-left:auto;color:${idleLevel(idleSecNow(d))==='over'?'var(--repair)':'#9a5a06'}">${fmtIdle(idleSecNow(d))}</span>
+        <span style="font-size:11px;color:var(--ink-faint)">/ เกณฑ์ ${IDLE_LIMIT_MIN}:00</span>
+     </div>`:''}
+     ${d.rep?`<div class="metrics">
+       <div class="metric"><div class="mn">${Math.floor(d.rep.idleTime/60)}:${String(d.rep.idleTime%60).padStart(2,'0')}</div><div class="ml">เวลาเดินเบารวมวันนี้ (ชม.)</div></div>
+       <div class="metric"><div class="mn">${d.rep.idleCnt}</div><div class="ml">จำนวนครั้งเดินเบา</div></div>
+       <div class="metric ${d.rep.idleOver?'bad':''}"><div class="mn">${d.rep.idleOver}</div><div class="ml">ครั้งที่เกินเกณฑ์</div></div>
+       <div class="metric"><div class="mn">${d.rep.stops}</div><div class="ml">จอดดับเครื่อง (ครั้ง)</div></div>
+     </div>`:`${d.gps!=='idling'?`<div style="font-size:12.5px;color:var(--ink-faint)">ขณะนี้ไม่ได้ติดเครื่องเดินเบา</div>`:''}<div style="font-size:11.5px;color:var(--ink-faint);margin-top:8px">สรุปรวมรายวันดึงจากรายงาน DLT (พร้อมในวันถัดไป)</div>`}
+   </div>
+
+   ${d.rep?`<div class="dsec">
+     <h3>${ICON.alert.replace('class="ic"','class="ic" style="width:13px;height:13px"')} สรุปพฤติกรรมขับวันนี้ <span class="src src-gps">GPS API</span></h3>
+     <div class="metrics">
+       <div class="metric"><div class="mn">${d.rep.dist}</div><div class="ml">ระยะทาง (กม.)</div></div>
+       <div class="metric"><div class="mn">${Math.floor(d.rep.run/60)}:${String(d.rep.run%60).padStart(2,'0')}</div><div class="ml">เวลาวิ่งรวม (ชม.)</div></div>
+       <div class="metric ${d.rep.over4?'bad':''}"><div class="mn">${d.rep.over4}</div><div class="ml">ขับเกิน 4 ชม.</div></div>
+       <div class="metric ${d.rep.over8?'bad':''}"><div class="mn">${d.rep.over8}</div><div class="ml">ขับเกิน 8 ชม.</div></div>
+       <div class="metric ${d.rep.noslash?'bad':''}"><div class="mn">${d.rep.noslash}</div><div class="ml">ขับไม่รูดบัตร</div></div>
+       <div class="metric"><div class="mn">${d.rep.stops}</div><div class="ml">จำนวนครั้งจอด</div></div>
+     </div>
+   </div>`:''}
+
+   <div class="dactions">
+     <button class="btn btn-ok">${ICON.pin.replace('class="ic"','class="ic" style="width:15px;height:15px"')} ดูบนแผนที่</button>
+     <button class="btn btn-ghost">${ICON.phone.replace('class="ic"','class="ic" style="width:15px;height:15px"')} โทรหาคนขับ</button>
+   </div>`;
+  document.getElementById('drawer').innerHTML=html;
+  document.getElementById('drawer').classList.add('show');
+  document.getElementById('scrim').classList.add('show');
+  updateIdle();
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('show');
+  document.getElementById('scrim').classList.remove('show');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
+
+document.getElementById('search').addEventListener('input',e=>{q=e.target.value;renderDrivers();});
+
+/* ---- idle watch banner (เครื่องเดินเบา) ---- */
+function renderIdleWatch(){
+  const idlers=drivers.filter(d=>d.gps==='idling').sort((a,b)=>idleSecNow(b)-idleSecNow(a));
+  const box=document.getElementById('idlewatch');
+  if(!idlers.length){box.style.display='none';return;}
+  box.style.display='';
+  const overN=idlers.filter(d=>idleSecNow(d)>=IDLE_LIMIT_MIN*60).length;
+  box.innerHTML=`
+    <div class="iw-head">
+      <div class="iw-title">${ICON.fuel} จับตาเครื่องเดินเบา · จอดไม่ดับเครื่อง</div>
+      <div class="iw-stat"><b class="over" id="iwOver">${overN}</b> คันเกินเกณฑ์ · <b id="iwNow">${idlers.length}</b> คันติดเครื่องอยู่</div>
+      <div class="iw-spacer"></div>
+      <div class="iw-limit">เกณฑ์
+        <button onclick="changeLimit(-1)">−</button>
+        <span class="lim" id="iwLimit">${IDLE_LIMIT_MIN}</span> นาที
+        <button onclick="changeLimit(1)">+</button>
+      </div>
+    </div>
+    <div class="iw-list">
+      ${idlers.map(d=>{
+        const sec=idleSecNow(d),lv=idleLevel(sec);
+        const dot=lv==='over'?cv('--repair'):lv==='warn'?cv('--alert'):cv('--idle');
+        return `<div class="iw-row" onclick="openDrawer('${d.id}')">
+          <span class="rdot" style="background:${dot}"></span>
+          <span class="rname">${d.name}</span>
+          <span class="rmeta"><span class="pl">${d.plate}</span> · ${d.loc}${d.order?' · '+d.jobStatus:''}</span>
+          <span class="iw-timer lv-${lv}" data-id="${d.id}" data-base="${d.idleBase}">${fmtIdle(sec)}</span>
+          <button class="rcall" onclick="event.stopPropagation()">โทรเตือน</button>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+function changeLimit(delta){
+  IDLE_LIMIT_MIN=Math.max(3,Math.min(30,IDLE_LIMIT_MIN+delta));
+  renderKpis();renderTabs();renderDrivers();renderIdleWatch();updateIdle();
+  if(window.google&&google.script&&google.script.run){
+    google.script.run.setIdleLimit(IDLE_LIMIT_MIN);
+  }
+}
+
+/* อัปเดตตัวจับเวลาเดินเบาทุกวินาที (แถบ + การ์ด + chip + drawer) */
+function updateIdle(){
+  document.querySelectorAll('.iw-timer,.idle-timer,.idle-chip').forEach(el=>{
+    const d=drivers.find(x=>x.id===el.dataset.id); if(!d)return;
+    const sec=idleSecNow(d),lv=idleLevel(sec),txt=fmtIdle(sec);
+    if(el.classList.contains('idle-chip')){
+      el.classList.remove('warn','over'); if(lv!=='ok')el.classList.add(lv);
+      const ct=el.querySelector('.ct'); if(ct)ct.textContent=txt;
+    }else if(el.classList.contains('iw-timer')){
+      el.className='iw-timer lv-'+lv; el.textContent=txt;
+    }else{ // telemetry / drawer timer
+      el.classList.remove('tm-warn','tm-over');
+      if(el.parentElement&&el.parentElement.classList.contains('seg')){
+        if(lv==='warn')el.classList.add('tm-warn'); if(lv==='over')el.classList.add('tm-over');
+      }
+      el.textContent=txt;
+    }
+  });
+  // header live counts
+  const idlers=drivers.filter(d=>d.gps==='idling');
+  const overN=idlers.filter(d=>idleSecNow(d)>=IDLE_LIMIT_MIN*60).length;
+  const o=document.getElementById('iwOver'),n=document.getElementById('iwNow');
+  if(o)o.textContent=overN; if(n)n.textContent=idlers.length;
+}
+
+/* clock */
+const TH_MONTHS=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const TH_DAYS=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+function tick(){
+  const n=new Date();
+  document.getElementById('clock').textContent=
+    [n.getHours(),n.getMinutes(),n.getSeconds()].map(x=>String(x).padStart(2,'0')).join(':');
+  document.getElementById('dateth').textContent=
+    `วัน${TH_DAYS[n.getDay()]} ${n.getDate()} ${TH_MONTHS[n.getMonth()]} ${n.getFullYear()+543}`;
+  updateIdle();
+}
+tick();setInterval(tick,1000);
+
+/* ============ LIFF + LOAD LIVE DATA ============ */
+const LIFF_ID = '<?= LIFF_ID ?>';   // ฉีดจาก Apps Script template
+let firstLoad = true;
+
+function renderAll(){
+  renderKpis();renderTabs();renderDrivers();renderTasks();renderLegend();renderIdleWatch();updateIdle();
+}
+
+function applyData(res){
+  if(!res||!res.ok){ showGate('โหลดข้อมูลไม่สำเร็จ','ลองรีเฟรชอีกครั้ง'); return; }
+  drivers = res.drivers||[];
+  tasks = res.tasks||[];
+  IDLE_LIMIT_MIN = res.idleLimitMin||10;
+  SERVER_SKEW = (res.serverNow||Date.now()) - Date.now();
+  hideGate();
+  renderAll();
+}
+
+function loadData(){
+  if(window.google&&google.script&&google.script.run){
+    google.script.run
+      .withSuccessHandler(applyData)
+      .withFailureHandler(e=>showGate('เกิดข้อผิดพลาด', e&&e.message||'ลองรีเฟรชอีกครั้ง'))
+      .getDriversData();
+  }else{
+    // เปิดไฟล์นอก LIFF (พรีวิว) → แสดงข้อความ
+    showGate('พรีวิวนอกระบบ','หน้านี้ทำงานเต็มรูปแบบเมื่อเปิดผ่าน LIFF ในแอป LINE');
+  }
+}
+
+function showGate(title,sub){
+  const g=document.getElementById('gate');
+  g.style.display='grid';
+  g.querySelector('.box').innerHTML=`<div class="deny-ic">⚠️</div><h2>${title}</h2><p>${sub||''}</p>`;
+}
+function hideGate(){ document.getElementById('gate').style.display='none'; }
+
+async function bootstrap(){
+  try{
+    await liff.init({ liffId: LIFF_ID });
+    if(!liff.isLoggedIn()){ liff.login(); return; }
+    const profile = await liff.getProfile();
+    google.script.run
+      .withSuccessHandler(v=>{
+        if(v&&v.ok){ loadData(); }
+        else showGate('ไม่มีสิทธิ์เข้าถึง','หน้านี้สำหรับแอดมินเท่านั้น — ติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์');
+      })
+      .withFailureHandler(e=>showGate('ตรวจสิทธิ์ไม่สำเร็จ', e&&e.message||''))
+      .verifyAdmin(profile.userId);
+  }catch(err){
+    // ไม่ได้อยู่ใน LIFF (เช่นเปิดไฟล์ตรง ๆ) → พยายามโหลดผ่าน GAS ตรง
+    loadData();
+  }
+}
+
+// auto-refresh ทุก 30 วินาที
+setInterval(loadData, 30000);
+
+if(window.liff){ bootstrap(); } else { loadData(); }
+</script>
+</body>
+</html>
