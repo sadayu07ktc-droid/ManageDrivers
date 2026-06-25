@@ -181,6 +181,25 @@
   .chip.idle-chip.warn{background:var(--alert-bg);color:#9a5a06}
   .chip.idle-chip.over{background:var(--repair-bg);color:var(--repair)}
 
+  /* ---------- live trucks panel ---------- */
+  .lt{padding:12px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+  .lt:last-child{border-bottom:none}
+  .lt:hover{background:var(--surface-2)}
+  .lt-top{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .lt-dir{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:2px 8px;border-radius:7px;white-space:nowrap}
+  .lt-out{background:var(--alert-bg);color:#9a5a06}
+  .lt-back{background:var(--avail-bg);color:#1f7a44}
+  .lt-none{background:var(--idle-bg);color:var(--idle)}
+  .lt-name{font-weight:600;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lt-plate{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint)}
+  .lt-dist{display:flex;align-items:baseline;gap:6px;margin-bottom:4px}
+  .lt-dist .km{font-family:'IBM Plex Mono',monospace;font-size:21px;font-weight:700;letter-spacing:-.02em}
+  .lt-dist .u{font-size:12px;color:var(--ink-soft)}
+  .lt-dist .eta{margin-left:auto;font-size:11.5px;color:var(--ink-soft)}
+  .lt-ctx{font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:5px;line-height:1.4}
+  .lt-ctx .ord{font-family:'IBM Plex Mono',monospace;color:var(--pine);font-weight:600}
+  .lt-empty{padding:24px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
+
   /* ---------- side: action queue ---------- */
   .side{display:flex;flex-direction:column;gap:20px}
   .task{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
@@ -298,8 +317,16 @@
       <div class="drivers" id="drivers"></div>
     </section>
 
-    <!-- RIGHT: action queue + legend -->
+    <!-- RIGHT: live trucks → action queue → legend -->
     <aside class="side">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>รถวิ่งอยู่ · ใกล้โรงงานที่สุด</h2>
+          <span class="count" id="liveCount"></span>
+        </div>
+        <div id="livetrucks"></div>
+      </div>
+
       <div class="panel">
         <div class="panel-head">
           <h2>ต้องดำเนินการ</h2>
@@ -497,6 +524,37 @@ function renderDrivers(){
         ${d.gps==='idling'?`<span class="chip idle-chip" data-id="${d.id}" data-base="${d.idleBase}">${ICON.fuel.replace('class="ic"','class="ic" style="width:12px;height:12px"')} เครื่องเดินเบา <span class="ct mono">${fmtIdle(idleSecNow(d))}</span></span>`:''}
         ${(d.alerts||[]).map(a=>`<span class="chip ${a.k}">${ICON.alert.replace('class="ic"','class="ic" style="width:12px;height:12px"')} ${a.t}</span>`).join('')}
       </div>`:''}
+    </div>`;
+  }).join('');
+}
+
+function renderLiveTrucks(){
+  const live=drivers.filter(d=>d.gps==='run')
+    .sort((a,b)=>(a.distFactory==null?1e9:a.distFactory)-(b.distFactory==null?1e9:b.distFactory));
+  document.getElementById('liveCount').textContent=`${live.length} คัน`;
+  const el=document.getElementById('livetrucks');
+  if(!live.length){el.innerHTML=`<div class="lt-empty">ยังไม่มีรถวิ่งอยู่ขณะนี้</div>`;return;}
+  el.innerHTML=live.map(d=>{
+    const dir=d.direction||'none';
+    const cls=dir==='out'?'lt-out':dir==='back'?'lt-back':'lt-none';
+    const icon=dir==='out'?'↗':dir==='back'?'↙':'•';
+    const km=(d.distFactory!=null)?d.distFactory:'—';
+    const eta=(d.distFactory!=null&&d.speed>0)?Math.round(d.distFactory/d.speed*60):null;
+    let ctx;
+    if(dir==='out') ctx=`<i style="font-style:normal">📍</i> ไป ${d.dirTo||'ลูกค้า'}${d.order?` · <span class="ord">${d.order}</span>`:''} · ${d.speed} km/h`;
+    else if(dir==='back') ctx=`<i style="font-style:normal">🏭</i> ${d.dirFrom?'จาก '+d.dirFrom+' ':''}→ โรงงาน · ${d.speed} km/h`;
+    else ctx=`วิ่งอยู่ · ไม่มีงาน · ${d.speed} km/h`;
+    return `<div class="lt" onclick="openDrawer('${d.id}')">
+      <div class="lt-top">
+        <span class="lt-dir ${cls}">${icon} ${d.dirText||'วิ่งอยู่'}</span>
+        <span class="lt-name">${d.name}</span>
+        <span class="lt-plate">${d.plate}</span>
+      </div>
+      <div class="lt-dist">
+        <span class="km">${km}</span><span class="u">กม. จากโรงงาน</span>
+        ${eta!=null?`<span class="eta">~${eta} นาที</span>`:(d.distTrend==='out'?`<span class="eta">กำลังออกห่าง</span>`:'')}
+      </div>
+      <div class="lt-ctx">${ctx}</div>
     </div>`;
   }).join('');
 }
@@ -737,7 +795,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbw4UvKuRrAQ_3Ldm8U0VJqf
 let MY_UID = '';     // LINE userId ของแอดมินที่เปิดหน้านี้
 
 function renderAll(){
-  renderKpis();renderGpsBar();renderTabs();renderDrivers();renderTasks();renderLegend();renderIdleWatch();updateIdle();
+  renderKpis();renderGpsBar();renderTabs();renderDrivers();renderLiveTrucks();renderTasks();renderLegend();renderIdleWatch();updateIdle();
 }
 
 function applyData(res){
