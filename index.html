@@ -93,6 +93,19 @@
   .iw-row .rcall{font-size:12px;font-weight:600;border:1px solid #EAD08C;background:#fff;color:#7a4e06;border-radius:8px;padding:5px 11px;cursor:pointer}
   .iw-row .rcall:hover{background:#FCF0DD}
 
+  /* ---------- GPS status bar (แถบเล็ก คลิกกรอง) ---------- */
+  .gpsbar{display:flex;flex-wrap:wrap;gap:9px;margin:-8px 0 22px}
+  .gchip{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);
+    border-radius:11px;padding:8px 13px;cursor:pointer;box-shadow:var(--shadow);transition:transform .12s,border-color .12s;user-select:none}
+  .gchip:hover{transform:translateY(-1px);border-color:var(--line-strong)}
+  .gchip.on{border-color:var(--pine);outline:2px solid var(--pine);outline-offset:-2px}
+  .gchip .gdot{width:9px;height:9px;border-radius:50%;flex:none}
+  .gchip .glabel{font-size:13px;font-weight:600;color:var(--ink)}
+  .gchip .gnum{font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:14px;color:var(--ink-soft);
+    background:var(--surface-2);border-radius:7px;padding:1px 8px;margin-left:1px}
+  .gchip .ic{width:14px;height:14px}
+  @media(max-width:640px){.gpsbar{gap:7px}.gchip{padding:7px 10px}.gchip .glabel{font-size:12px}}
+
   /* ---------- KPI strip ---------- */
   .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px}
   @media(max-width:1080px){.kpis{grid-template-columns:repeat(4,1fr)}}
@@ -260,8 +273,11 @@
 </header>
 
 <main>
-  <!-- KPI strip -->
+  <!-- KPI strip (สถานะการจ้าง) -->
   <div class="kpis" id="kpis"></div>
+
+  <!-- แถบสถานะรถจาก GPS (เล็ก คลิกกรองได้) -->
+  <div class="gpsbar" id="gpsbar"></div>
 
   <!-- Idle watch (เครื่องเดินเบา) — ผู้บริหารจับตาเป็นพิเศษ -->
   <div class="idlewatch" id="idlewatch" style="display:none"></div>
@@ -346,7 +362,16 @@ const cv = v=>getComputedStyle(document.documentElement).getPropertyValue(v).tri
 const initials = n=>n.replace(/^(นาย|นาง|น\.ส\.|MR\.|MS\.)/i,'').trim().charAt(0);
 const avatarColor = s=>cv(STATUS[s].c);
 
-let filter='all', q='';
+let filter='all', q='', gf='';
+
+const gpsOf = d => d.atFactory ? 'fac' : d.gps;   // 'fac' | 'run' | 'idling' | 'park' | 'off'
+function gpsMatch(d){
+  if(!gf) return true;
+  if(gf==='fac') return !!d.atFactory;
+  if(gf==='idle') return d.gps==='idling';
+  return d.gps===gf;   // run | park | off
+}
+function setGpsFilter(g){ gf = (gf===g ? '' : g); renderGpsBar(); renderDrivers(); updateIdle(); }
 
 function counts(){
   const c={all:drivers.length,avail:0,onjob:0,leave:0,repair:0,alert:0,idle:0,idleOver:0};
@@ -378,6 +403,24 @@ function renderKpis(){
     </div>`).join('');
 }
 
+function renderGpsBar(){
+  const c={fac:0,run:0,idling:0,park:0,off:0};
+  drivers.forEach(d=>{ if(d.atFactory) c.fac++; if(c[d.gps]!=null) c[d.gps]++; });
+  const defs=[
+    {k:'fac',label:'อยู่ที่โรงงาน',color:'--pine',count:c.fac},
+    {k:'run',label:'วิ่งงาน',color:'--avail',count:c.run},
+    {k:'idle',label:'จอดไม่ดับเครื่อง',color:'--alert',count:c.idling},
+    {k:'park',label:'จอดดับเครื่อง',color:'--idle',count:c.park},
+    {k:'off',label:'ออฟไลน์',color:'--repair',count:c.off}
+  ];
+  document.getElementById('gpsbar').innerHTML=defs.map(d=>`
+    <div class="gchip ${gf===d.k?'on':''}" onclick="setGpsFilter('${d.k}')">
+      <span class="gdot" style="background:${cv(d.color)}"></span>
+      <span class="glabel">${d.label}</span>
+      <span class="gnum">${d.count}</span>
+    </div>`).join('');
+}
+
 function renderTabs(){
   const c=counts();
   const defs=[['all','ทั้งหมด',null],['avail','ว่าง','--avail'],['onjob','ติดงาน','--onjob'],
@@ -390,6 +433,7 @@ function renderTabs(){
 }
 
 function matchFilter(d){
+  if(!gpsMatch(d)) return false;
   if(filter==='alert') return (d.alerts&&d.alerts.length)||(d.gps==='idling'&&idleSecNow(d)>=IDLE_LIMIT_MIN*60);
   if(filter==='idle') return d.gps==='idling';
   if(filter==='all') return true;
@@ -402,7 +446,9 @@ function matchSearch(d){
 }
 
 function gpsLine(d){
-  const fac = (d.distFactory!=null && d.gps!=='off')
+  const fac = (d.atFactory)
+    ? `<span class="seg"><span class="v" style="color:#6EE7A8;font-weight:600">🏭 ที่โรงงาน</span></span>`
+    : (d.distFactory!=null && d.gps!=='off')
     ? `<span class="seg"><span class="k">โรงงาน</span><span class="v">${d.distFactory} กม.</span></span>` : '';
   if(d.gps==='off') return `<span class="seg"><span class="k">GPS</span><span class="gps-off">ออฟไลน์</span></span>
     <span class="seg"><span class="k">ping</span><span class="v">${d.ping}</span></span>`;
@@ -691,7 +737,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbw4UvKuRrAQ_3Ldm8U0VJqf
 let MY_UID = '';     // LINE userId ของแอดมินที่เปิดหน้านี้
 
 function renderAll(){
-  renderKpis();renderTabs();renderDrivers();renderTasks();renderLegend();renderIdleWatch();updateIdle();
+  renderKpis();renderGpsBar();renderTabs();renderDrivers();renderTasks();renderLegend();renderIdleWatch();updateIdle();
 }
 
 function applyData(res){
