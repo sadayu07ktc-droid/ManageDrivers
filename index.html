@@ -251,6 +251,8 @@
   .tl:last-child .line{display:none}
   .tl .lab{font-size:13px;font-weight:600}
   .tl .tm{font-size:12px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace}
+  .leg-km{margin-left:8px;color:var(--pine);font-weight:700;background:#EAF3EF;padding:1px 7px;border-radius:5px;font-size:11px}
+  .leg-km:empty{display:none}
   .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
   .metric{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
   .metric .mn{font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace}
@@ -663,9 +665,9 @@ function openDrawer(id){
      <h3>${ICON.truck.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ไทม์ไลน์งานปัจจุบัน <span class="src src-drive">DRIVE</span></h3>
      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${[d.order,d.garden].filter(Boolean).join(' · ')||'งานปัจจุบัน'}</div>
      ${d.viaRamp?`<div style="display:inline-flex;align-items:center;gap:7px;background:#EAF3EF;color:var(--pine-deep);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">${ICON.pin.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ผ่านลานเท · ${d.rampName}</div>`:`<div style="display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);color:var(--ink-soft);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">งานตรง · ไม่ผ่านลานเท</div>`}
-     <div class="timeline">${tl.map(([lab,tm,done])=>`
+     <div class="timeline">${tl.map(([lab,tm,done],i)=>`
        <div class="tl ${done?'done':'pending'}"><div class="line"></div><div class="node"></div>
-         <div><div class="lab">${lab}</div><div class="tm">${tm}</div></div></div>`).join('')}</div>
+         <div><div class="lab">${lab}</div><div class="tm">${tm}<span class="leg-km" data-idx="${i}"></span></div></div></div>`).join('')}</div>
    </div>`:''}
 
    <div class="dsec" style="background:#FFFDF6">
@@ -703,6 +705,20 @@ function openDrawer(id){
   document.getElementById('drawer').classList.add('show');
   document.getElementById('scrim').classList.add('show');
   updateIdle();
+  if(hasJob) loadLegs(d.id);
+}
+function loadLegs(driverId){
+  if(!MY_UID) return;
+  fetch(GAS_URL + '?action=getLegs&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&t=' + Date.now())
+    .then(r=>r.json())
+    .then(res=>{
+      if(!res || !res.ok || !res.legKm) return;
+      Object.keys(res.legKm).forEach(idx=>{
+        const span=document.querySelector('.leg-km[data-idx="'+idx+'"]');
+        if(span) span.textContent='+ ' + res.legKm[idx] + ' กม.';
+      });
+    })
+    .catch(()=>{});
 }
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('show');
@@ -794,7 +810,7 @@ tick();setInterval(tick,1000);
 
 /* ▼▼▼ แก้ 2 ค่านี้ให้เป็นของคุณ ▼▼▼ */
 const LIFF_ID = '2010274217-jaHQFGHG';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbw4UvKuRrAQ_3Ldm8U0VJqfjfBQUSYaTEdrxkdXUVN98G68XseCquhDeXfMgU8cVYaY/exec';
+const GAS_URL = 'https://script.google.com/macros/s/วาง_DEPLOYMENT_ID_ของคุณ/exec';
 /* ▲▲▲ GAS_URL = URL /exec ที่ได้ตอน Deploy (ตัวเดียวกับหน้า order/driver) ▲▲▲ */
 
 let MY_UID = '';     // LINE userId ของแอดมินที่เปิดหน้านี้
