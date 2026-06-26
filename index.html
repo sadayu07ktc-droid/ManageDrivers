@@ -518,8 +518,8 @@ function renderDrivers(){
           <span class="pip" style="background:${cv(st.c)}"></span>${st.th}</span>
       </div>
       <div class="telem">${gpsLine(d)}</div>
-      ${d.order?`<div class="job">${ICON.pin.replace('class="ic"','class="ic" style="color:var(--ink-faint);width:14px;height:14px"')}
-        <span class="ord">${d.order}</span> · ${d.garden} · <b style="color:var(--ink-soft)">${d.jobStatus}</b>
+      ${(d.order||d.hasJob)?`<div class="job">${ICON.pin.replace('class="ic"','class="ic" style="color:var(--ink-faint);width:14px;height:14px"')}
+        ${d.order?`<span class="ord">${d.order}</span> · `:''}${d.garden||'งานปัจจุบัน'}${d.jobStatus?` · <b style="color:var(--ink-soft)">${d.jobStatus}</b>`:''}
         ${d.viaRamp?`<span style="margin-left:auto;font-size:10.5px;font-weight:600;color:var(--pine);background:#EAF3EF;padding:2px 7px;border-radius:6px;white-space:nowrap">ผ่านลานเท</span>`:''}</div>`:''}
       ${d.leaveType?`<div class="job">${ICON.leave.replace('class="ic"','class="ic" style="color:var(--leave);width:14px;height:14px"')} ${d.leaveType} · ${d.leaveRange}</div>`:''}
       ${d.repairIssue?`<div class="job">${ICON.wrench.replace('class="ic"','class="ic" style="color:var(--repair);width:14px;height:14px"')} ${d.repairIssue}</div>`:''}
@@ -544,14 +544,14 @@ function renderLiveTrucks(){
     const km=(d.distFactory!=null)?d.distFactory:'—';
     const eta=(d.distFactory!=null&&d.speed>0)?Math.round(d.distFactory/d.speed*60):null;
     let ctx;
-    if(dir==='out') ctx=`<i style="font-style:normal">📍</i> ไป ${d.dirTo||'ลูกค้า'}${d.order?` · <span class="ord">${d.order}</span>`:''} · ${d.speed} km/h`;
-    else if(dir==='back') ctx=`<i style="font-style:normal">🏭</i> ${d.dirFrom?'จาก '+d.dirFrom+' ':''}→ โรงงาน · ${d.speed} km/h`;
-    else ctx=`วิ่งอยู่ · ไม่มีงาน · ${d.speed} km/h`;
+    if(dir==='out') ctx=`<i style="font-style:normal">📍</i> ${d.dirTo?('ไป '+d.dirTo):'ออกห่างโรงงาน'}${d.order?` · <span class="ord">${d.order}</span>`:''} · ${d.speed} km/h`;
+    else if(dir==='back') ctx=`<i style="font-style:normal">🏭</i> ${d.dirFrom?'จาก '+d.dirFrom+' ':'กำลังเข้า '}→ โรงงาน · ${d.speed} km/h`;
+    else ctx=`วิ่งอยู่ · ${d.speed} km/h`;
     return `<div class="lt" onclick="openDrawer('${d.id}')">
       <div class="lt-top">
         <span class="lt-dir ${cls}">${icon} ${d.dirText||'วิ่งอยู่'}</span>
         <span class="lt-name">${d.name}</span>
-        <span class="lt-plate">${d.plate}</span>
+        <span class="lt-plate">${plateHead(d)}</span>
       </div>
       <div class="lt-dist">
         <span class="km">${km}</span><span class="u">กม. จากโรงงาน</span>
@@ -625,7 +625,8 @@ function buildTimeline(d){
 function openDrawer(id){
   const d=drivers.find(x=>x.id===id);if(!d)return;
   const st=STATUS[d.status];
-  const tl=d.order?buildTimeline(d):null;
+  const hasJob = d.hasJob || !!d.order || (d.times && Object.values(d.times).some(Boolean));
+  const tl=hasJob?buildTimeline(d):null;
   const html=`
    <div class="dh">
      <button class="x" onclick="closeDrawer()">×</button>
@@ -658,9 +659,9 @@ function openDrawer(id){
      </div>
    </div>
 
-   ${d.order&&tl?`<div class="dsec">
+   ${tl?`<div class="dsec">
      <h3>${ICON.truck.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ไทม์ไลน์งานปัจจุบัน <span class="src src-drive">DRIVE</span></h3>
-     <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${d.order} · ${d.garden}</div>
+     <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${[d.order,d.garden].filter(Boolean).join(' · ')||'งานปัจจุบัน'}</div>
      ${d.viaRamp?`<div style="display:inline-flex;align-items:center;gap:7px;background:#EAF3EF;color:var(--pine-deep);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">${ICON.pin.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ผ่านลานเท · ${d.rampName}</div>`:`<div style="display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);color:var(--ink-soft);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">งานตรง · ไม่ผ่านลานเท</div>`}
      <div class="timeline">${tl.map(([lab,tm,done])=>`
        <div class="tl ${done?'done':'pending'}"><div class="line"></div><div class="node"></div>
@@ -793,7 +794,7 @@ tick();setInterval(tick,1000);
 
 /* ▼▼▼ แก้ 2 ค่านี้ให้เป็นของคุณ ▼▼▼ */
 const LIFF_ID = '2010274217-jaHQFGHG';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbw4UvKuRrAQ_3Ldm8U0VJqfjfBQUSYaTEdrxkdXUVN98G68XseCquhDeXfMgU8cVYaY/exec';
+const GAS_URL = 'https://script.google.com/macros/s/วาง_DEPLOYMENT_ID_ของคุณ/exec';
 /* ▲▲▲ GAS_URL = URL /exec ที่ได้ตอน Deploy (ตัวเดียวกับหน้า order/driver) ▲▲▲ */
 
 let MY_UID = '';     // LINE userId ของแอดมินที่เปิดหน้านี้
