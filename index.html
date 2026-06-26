@@ -387,6 +387,9 @@ const idleLevel = sec => { const r=sec/(IDLE_LIMIT_MIN*60); return r>=1?'over':r
 /* ============ RENDER ============ */
 const cv = v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const initials = n=>n.replace(/^(นาย|นาง|น\.ส\.|MR\.|MS\.)/i,'').trim().charAt(0);
+const plateList = d => String(d.plates||d.plate||'').split(',').map(s=>s.trim()).filter(Boolean);
+const plateHead = d => plateList(d)[0] || '—';
+const plateTrailer = d => plateList(d).slice(1).join(' · ') || '—';
 const avatarColor = s=>cv(STATUS[s].c);
 
 let filter='all', q='', gf='';
@@ -636,9 +639,10 @@ function openDrawer(id){
      <h3>${ICON.users.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ข้อมูลคนขับ <span class="src src-drive">DRIVE</span></h3>
      <div class="kv">
        <div class="item"><div class="kk">เบอร์โทร</div><div class="vv mono">${d.phone}</div></div>
-       <div class="item"><div class="kk">ประเภทรถ</div><div class="vv">พ่วง (Trailer)</div></div>
-       <div class="item"><div class="kk">ทะเบียน</div><div class="vv mono">${d.plate}</div></div>
-       <div class="item"><div class="kk">สถานะการจ้าง</div><div class="vv" style="color:${cv(st.c)}">${st.th}</div></div>
+       <div class="item"><div class="kk">ประเภทรถ</div><div class="vv">${d.vehicleType||'—'}</div></div>
+       <div class="item"><div class="kk">ทะเบียนหัวลาก</div><div class="vv mono">${plateHead(d)}</div></div>
+       <div class="item"><div class="kk">ทะเบียนลูก/หาง</div><div class="vv mono">${plateTrailer(d)}</div></div>
+       <div class="item"><div class="kk">สถานะการจ้าง</div><div class="vv" style="color:${cv(st.c)}">${st.th}${d.order?` <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pine);background:#EAF3EF;padding:1px 6px;border-radius:5px;font-weight:600">${d.order}</span>`:''}</div></div>
      </div>
    </div>
 
