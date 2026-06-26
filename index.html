@@ -200,6 +200,12 @@
   .lt-ctx .ord{font-family:'IBM Plex Mono',monospace;color:var(--pine);font-weight:600}
   .lt-empty{padding:24px 16px;text-align:center;color:var(--ink-faint);font-size:13px}
 
+  .psel{display:flex;flex-wrap:wrap;gap:6px}
+  .psel .pbtn{font-family:inherit;font-size:12.5px;padding:6px 13px;border-radius:999px;border:1px solid var(--line-strong);
+    background:#fff;color:var(--ink-soft);cursor:pointer;transition:all .12s}
+  .psel .pbtn:hover{border-color:var(--pine);color:var(--pine)}
+  .psel .pbtn.on{background:var(--pine);border-color:var(--pine);color:#fff}
+
   /* ---------- side: action queue ---------- */
   .side{display:flex;flex-direction:column;gap:20px}
   .task{padding:13px 16px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
@@ -671,31 +677,42 @@ function openDrawer(id){
    </div>`:''}
 
    <div class="dsec" style="background:#FFFDF6">
-     <h3>${ICON.fuel.replace('class="ic"','class="ic" style="width:13px;height:13px;color:var(--alert)"')} เครื่องเดินเบา (จอดไม่ดับเครื่อง) <span class="src src-gps">GPS API</span></h3>
-     ${d.gps==='idling'?`<div style="background:${idleLevel(idleSecNow(d))==='over'?'var(--repair-bg)':'var(--alert-bg)'};border-radius:10px;padding:11px 13px;margin-bottom:${d.rep?'12px':'0'};display:flex;align-items:center;gap:10px">
+     <h3>${ICON.fuel.replace('class="ic"','class="ic" style="width:13px;height:13px;color:var(--alert)"')} เครื่องเดินเบา + สรุปพฤติกรรมขับ <span class="src src-gps">GPS API</span></h3>
+     ${d.gps==='idling'?`<div style="background:${idleLevel(idleSecNow(d))==='over'?'var(--repair-bg)':'var(--alert-bg)'};border-radius:10px;padding:11px 13px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
         <span style="font-size:12px;color:var(--ink-soft)">ติดเครื่องค้างขณะนี้</span>
         <span class="idle-timer mono" data-id="${d.id}" style="font-size:22px;font-weight:700;margin-left:auto;color:${idleLevel(idleSecNow(d))==='over'?'var(--repair)':'#9a5a06'}">${fmtIdle(idleSecNow(d))}</span>
         <span style="font-size:11px;color:var(--ink-faint)">/ เกณฑ์ ${IDLE_LIMIT_MIN}:00</span>
      </div>`:''}
-     ${d.rep?`<div class="metrics">
-       <div class="metric"><div class="mn">${Math.floor(d.rep.idleTime/60)}:${String(d.rep.idleTime%60).padStart(2,'0')}</div><div class="ml">เวลาเดินเบารวมวันนี้ (ชม.)</div></div>
-       <div class="metric"><div class="mn">${d.rep.idleCnt}</div><div class="ml">จำนวนครั้งเดินเบา</div></div>
-       <div class="metric ${d.rep.idleOver?'bad':''}"><div class="mn">${d.rep.idleOver}</div><div class="ml">ครั้งที่เกินเกณฑ์</div></div>
-       <div class="metric"><div class="mn">${d.rep.stops}</div><div class="ml">จอดดับเครื่อง (ครั้ง)</div></div>
-     </div>`:`${d.gps!=='idling'?`<div style="font-size:12.5px;color:var(--ink-faint)">ขณะนี้ไม่ได้ติดเครื่องเดินเบา</div>`:''}<div style="font-size:11.5px;color:var(--ink-faint);margin-top:8px">สรุปรวมรายวันดึงจากรายงาน DLT (พร้อมในวันถัดไป)</div>`}
-   </div>
 
-   ${d.rep?`<div class="dsec">
-     <h3>${ICON.alert.replace('class="ic"','class="ic" style="width:13px;height:13px"')} สรุปพฤติกรรมขับวันนี้ <span class="src src-gps">GPS API</span></h3>
-     <div class="metrics">
-       <div class="metric"><div class="mn">${d.rep.dist}</div><div class="ml">ระยะทาง (กม.)</div></div>
-       <div class="metric"><div class="mn">${Math.floor(d.rep.run/60)}:${String(d.rep.run%60).padStart(2,'0')}</div><div class="ml">เวลาวิ่งรวม (ชม.)</div></div>
-       <div class="metric ${d.rep.over4?'bad':''}"><div class="mn">${d.rep.over4}</div><div class="ml">ขับเกิน 4 ชม.</div></div>
-       <div class="metric ${d.rep.over8?'bad':''}"><div class="mn">${d.rep.over8}</div><div class="ml">ขับเกิน 8 ชม.</div></div>
-       <div class="metric ${d.rep.noslash?'bad':''}"><div class="mn">${d.rep.noslash}</div><div class="ml">ขับไม่รูดบัตร</div></div>
-       <div class="metric"><div class="mn">${d.rep.stops}</div><div class="ml">จำนวนครั้งจอด</div></div>
+     <div class="psel">
+       <button class="pbtn on" onclick="setSummaryPeriod('${d.id}','day',this)">วันนี้</button>
+       <button class="pbtn" onclick="setSummaryPeriod('${d.id}','week',this)">สัปดาห์นี้</button>
+       <button class="pbtn" onclick="setSummaryPeriod('${d.id}','month',this)">เดือนนี้</button>
+       <button class="pbtn" onclick="setSummaryPeriod('${d.id}','custom',this)">ระบุช่วง</button>
      </div>
-   </div>`:''}
+     <div id="smRange" style="display:none;gap:8px;align-items:center;margin:9px 0 4px">
+       <input type="date" id="smFrom" style="flex:1;padding:6px 8px;border:1px solid var(--line-strong);border-radius:8px;font-family:inherit">
+       <span style="font-size:12px;color:var(--ink-faint)">ถึง</span>
+       <input type="date" id="smTo" style="flex:1;padding:6px 8px;border:1px solid var(--line-strong);border-radius:8px;font-family:inherit">
+       <button class="btn btn-ghost" style="padding:6px 12px" onclick="loadSummary('${d.id}','custom')">ดู</button>
+     </div>
+     <div id="smLabel" style="font-size:11.5px;color:var(--ink-faint);margin:6px 0 12px">กำลังโหลด...</div>
+
+     <div class="metrics">
+       <div class="metric"><div class="mn" id="sm_idle">—</div><div class="ml">เวลาเดินเบารวม (ชม.)</div></div>
+       <div class="metric"><div class="mn" id="sm_idlecnt">—</div><div class="ml">จำนวนครั้งเดินเบา</div></div>
+       <div class="metric" id="sm_idleover_c"><div class="mn" id="sm_idleover">—</div><div class="ml">ครั้งที่เกินเกณฑ์</div></div>
+       <div class="metric"><div class="mn" id="sm_stop">—</div><div class="ml">จอดดับเครื่อง (ครั้ง)</div></div>
+     </div>
+
+     <h3 style="margin-top:16px">${ICON.alert.replace('class="ic"','class="ic" style="width:13px;height:13px"')} สรุปพฤติกรรมขับ</h3>
+     <div class="metrics">
+       <div class="metric"><div class="mn" id="sm_dist">—</div><div class="ml">ระยะทาง (กม.)</div></div>
+       <div class="metric"><div class="mn" id="sm_run">—</div><div class="ml">เวลาวิ่งรวม (ชม.)</div></div>
+       <div class="metric" id="sm_ot4_c"><div class="mn" id="sm_ot4">—</div><div class="ml">ขับเกิน 4 ชม.</div></div>
+       <div class="metric" id="sm_ot8_c"><div class="mn" id="sm_ot8">—</div><div class="ml">ขับเกิน 8 ชม.</div></div>
+     </div>
+   </div>
 
    <div class="dactions">
      <button class="btn btn-ok">${ICON.pin.replace('class="ic"','class="ic" style="width:15px;height:15px"')} ดูบนแผนที่</button>
@@ -706,6 +723,7 @@ function openDrawer(id){
   document.getElementById('scrim').classList.add('show');
   updateIdle();
   if(hasJob) loadLegs(d.id);
+  loadSummary(d.id,'day');
 }
 function loadLegs(driverId){
   if(!MY_UID) return;
@@ -720,6 +738,44 @@ function loadLegs(driverId){
     })
     .catch(()=>{});
 }
+const hmm = m => (m==null)?'—':(Math.floor(m/60)+':'+String(m%60).padStart(2,'0'));
+const orDash = v => (v==null)?'—':v;
+function setSummaryPeriod(driverId, period, btn){
+  document.querySelectorAll('.psel .pbtn').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  document.getElementById('smRange').style.display = (period==='custom')?'flex':'none';
+  if(period!=='custom') loadSummary(driverId, period);
+}
+function loadSummary(driverId, period){
+  if(!MY_UID) return;
+  const lbl=document.getElementById('smLabel');
+  if(lbl) lbl.textContent='กำลังโหลด...';
+  let url = GAS_URL + '?action=getSummary&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&period=' + period;
+  if(period==='custom'){
+    const f=document.getElementById('smFrom'), t=document.getElementById('smTo');
+    if(!f.value||!t.value){ if(lbl)lbl.textContent='เลือกช่วงวันที่ก่อน'; return; }
+    url += '&from=' + f.value + '&to=' + t.value;
+  }
+  url += '&t=' + Date.now();
+  fetch(url).then(r=>r.json()).then(res=>{
+    if(!res || !res.ok){ if(lbl)lbl.textContent='โหลดไม่สำเร็จ'; return; }
+    if(lbl) lbl.textContent = res.rangeLabel + (res.note?(' · '+res.note):'');
+    const I=res.idle||{}, D=res.drive||{};
+    setTxt('sm_idle', I.totalMin==null?'—':hmm(I.totalMin));
+    setTxt('sm_idlecnt', orDash(I.count));
+    setTxt('sm_idleover', orDash(I.over));
+    setTxt('sm_stop', orDash(I.stop));
+    setTxt('sm_dist', orDash(D.distanceKm));
+    setTxt('sm_run', D.runMin==null?'—':hmm(D.runMin));
+    setTxt('sm_ot4', orDash(D.overtime4));
+    setTxt('sm_ot8', orDash(D.overtime8));
+    mark('sm_idleover_c', I.over);
+    mark('sm_ot4_c', D.overtime4);
+    mark('sm_ot8_c', D.overtime8);
+  }).catch(()=>{ if(lbl)lbl.textContent='โหลดไม่สำเร็จ'; });
+}
+function setTxt(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
+function mark(id,v){ const el=document.getElementById(id); if(el) el.classList.toggle('bad', !!v && v>0); }
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('show');
   document.getElementById('scrim').classList.remove('show');
@@ -810,7 +866,7 @@ tick();setInterval(tick,1000);
 
 /* ▼▼▼ แก้ 2 ค่านี้ให้เป็นของคุณ ▼▼▼ */
 const LIFF_ID = '2010274217-jaHQFGHG';
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbw4UvKuRrAQ_3Ldm8U0VJqfjfBQUSYaTEdrxkdXUVN98G68XseCquhDeXfMgU8cVYaY/exec';
+const GAS_URL = 'https://script.google.com/macros/s/วาง_DEPLOYMENT_ID_ของคุณ/exec';
 /* ▲▲▲ GAS_URL = URL /exec ที่ได้ตอน Deploy (ตัวเดียวกับหน้า order/driver) ▲▲▲ */
 
 let MY_UID = '';     // LINE userId ของแอดมินที่เปิดหน้านี้
