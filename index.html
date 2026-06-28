@@ -722,12 +722,12 @@ function openDrawer(id){
   document.getElementById('drawer').classList.add('show');
   document.getElementById('scrim').classList.add('show');
   updateIdle();
-  if(hasJob) loadLegs(d.id);
+  if(hasJob) loadLegs(d.id, d.order);
   loadSummary(d.id,'day');
 }
-function loadLegs(driverId){
+function loadLegs(driverId, orderId){
   if(!MY_UID) return;
-  fetch(GAS_URL + '?action=getLegs&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&t=' + Date.now())
+  fetch(GAS_URL + '?action=getLegs&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&orderId=' + encodeURIComponent(orderId||'') + '&t=' + Date.now())
     .then(r=>r.json())
     .then(res=>{
       if(!res || !res.ok || !res.legKm) return;
