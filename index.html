@@ -684,6 +684,8 @@ function openDrawer(id){
        <div class="metric"><div class="mn" id="ts_heavy">—</div><div class="ml">% วิ่งรถหนัก</div></div>
        <div class="metric"><div class="mn" id="ts_dist">—</div><div class="ml">ระยะทางเที่ยวนี้ (กม.)</div></div>
        <div class="metric"><div class="mn" id="ts_fuel">—</div><div class="ml">น้ำมันรวม (ลิตร)</div></div>
+       <div class="metric"><div class="mn" id="ts_qty">—</div><div class="ml">ปริมาณ (กก./ชิ้น)</div></div>
+       <div class="metric"><div class="mn" id="ts_cpu">—</div><div class="ml">ต้นทุนรวม/หน่วย</div></div>
      </div>
    </div>`:''}
 
@@ -762,6 +764,8 @@ function loadTripStats(driverId, orderId){
       setTxt('ts_heavy', res.pctHeavy==null   ? '—' : res.pctHeavy + '%');
       setTxt('ts_dist',  res.distanceKm==null ? '—' : res.distanceKm);
       setTxt('ts_fuel',  res.fuelLiters==null ? '—' : res.fuelLiters);
+      setTxt('ts_qty', res.qty==null ? '—' : Number(res.qty).toLocaleString());
+      setTxt('ts_cpu', res.costPerUnit==null ? '—' : res.costPerUnit + ' ' + (res.unit||''));
     })
     .catch(()=>{});
 }
