@@ -48,6 +48,12 @@
     border-bottom:3px solid var(--gold);
   }
   .bar{max-width:1320px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .backbtn{display:inline-flex;align-items:center;gap:7px;font-family:inherit;font-size:13px;font-weight:600;
+    color:#EAF3EF;background:rgba(255,255,255,.12);border:1px solid rgba(143,201,185,.4);
+    border-radius:10px;padding:8px 14px 8px 12px;cursor:pointer;transition:background .12s,transform .12s;white-space:nowrap}
+  .backbtn:hover{background:rgba(255,255,255,.22)}
+  .backbtn:active{transform:translateY(1px)}
+  .backbtn svg{width:16px;height:16px;stroke-width:2.4}
   .brand{display:flex;flex-direction:column;line-height:1.15}
   .brand .eyebrow{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:#8FC9B9;font-weight:600}
   .brand h1{font-size:21px;font-weight:700;letter-spacing:-.01em}
@@ -289,6 +295,10 @@
 
 <header>
   <div class="bar">
+    <button class="backbtn" onclick="goBackToDashboard()" title="กลับสู่ SSB Dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      SSB Dashboard
+    </button>
     <div class="brand">
       <span class="eyebrow">SSB SMART SUPPLY · MANAGE DRIVERS</span>
       <h1>จัดการคนขับ</h1>
@@ -918,6 +928,20 @@ tick();setInterval(tick,1000);
 const LIFF_ID = '2010274217-jaHQFGHG';
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbw4UvKuRrAQ_3Ldm8U0VJqfjfBQUSYaTEdrxkdXUVN98G68XseCquhDeXfMgU8cVYaY/exec';
 /* ▲▲▲ GAS_URL = URL /exec ที่ได้ตอน Deploy (ตัวเดียวกับหน้า order/driver) ▲▲▲ */
+
+/* ▼▼▼ ปุ่ม "กลับ SSB Dashboard" ▼▼▼
+   ใส่ลิงก์ SSB Dashboard (หน้า Command Center) ตรงนี้
+   - ถ้าเว้นว่าง '' ปุ่มจะย้อนกลับหน้าเดิม (history.back) หรือปิดหน้าต่าง LIFF ให้อัตโนมัติ */
+const DASHBOARD_URL = 'https://liff.line.me/2010274217-Ot7vGhri';   // SSB Dashboard (LIFF_ID_ADMIN)
+function goBackToDashboard(){
+  if(DASHBOARD_URL){ window.location.href = DASHBOARD_URL; return; }
+  if(window.history.length > 1){ window.history.back(); return; }
+  try{
+    if(window.liff && liff.isInClient && liff.isInClient()){ liff.closeWindow(); return; }
+  }catch(e){}
+  window.history.back();
+}
+/* ▲▲▲ ▲▲▲ */
 
 let MY_UID = '';     // LINE userId ของแอดมินที่เปิดหน้านี้
 
