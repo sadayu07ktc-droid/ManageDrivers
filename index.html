@@ -746,9 +746,14 @@ function loadLegs(driverId, orderId){
     .then(r=>r.json())
     .then(res=>{
       if(!res || !res.ok || !res.legKm) return;
-      Object.keys(res.legKm).forEach(idx=>{
+      var idxs = Object.keys(res.legKm).map(Number).sort((a,b)=>a-b);
+      var lastIdx = idxs[idxs.length-1];           // ช่วงสุดท้าย = ขากลับ (หนัก)
+      idxs.forEach(idx=>{
         const span=document.querySelector('.leg-km[data-idx="'+idx+'"]');
-        if(span) span.textContent='+ ' + res.legKm[idx] + ' กม.';
+        if(!span) return;
+        // ช่วงสุดท้าย = 🏋️ หนัก (บรรทุกแล้ว), ช่วงก่อนหน้า = 🪶 เบา (ขาไป)
+        var load = (idx===lastIdx) ? '🏋️ หนัก' : '🪶 เบา';
+        span.textContent = '+ ' + res.legKm[idx] + ' กม. · ' + load;
       });
     })
     .catch(()=>{});
