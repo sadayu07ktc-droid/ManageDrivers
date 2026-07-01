@@ -259,6 +259,9 @@
   .tl .tm{font-size:12px;color:var(--ink-faint);font-family:'IBM Plex Mono',monospace}
   .leg-km{margin-left:8px;color:var(--pine);font-weight:700;background:#EAF3EF;padding:1px 7px;border-radius:5px;font-size:11px}
   .leg-km:empty{display:none}
+  .leg-load{margin-left:6px;padding:1px 8px;border-radius:5px;font-size:11px;font-weight:700;white-space:nowrap}
+  .lg-light{background:#DCF3E3;color:#157A40}   /* เบา = เขียว */
+  .lg-heavy{background:#FBEAD2;color:#C26A06}   /* หนัก = ส้ม */
   .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
   .metric{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
   .metric .mn{font-size:22px;font-weight:700;font-family:'IBM Plex Mono',monospace}
@@ -747,13 +750,15 @@ function loadLegs(driverId, orderId){
     .then(res=>{
       if(!res || !res.ok || !res.legKm) return;
       var idxs = Object.keys(res.legKm).map(Number).sort((a,b)=>a-b);
-      var lastIdx = idxs[idxs.length-1];           // ช่วงสุดท้าย = ขากลับ (หนัก)
+      var lastIdx = idxs[idxs.length-1];
       idxs.forEach(idx=>{
         const span=document.querySelector('.leg-km[data-idx="'+idx+'"]');
         if(!span) return;
-        // ช่วงสุดท้าย = 🏋️ หนัก (บรรทุกแล้ว), ช่วงก่อนหน้า = 🪶 เบา (ขาไป)
-        var load = (idx===lastIdx) ? '🏋️ หนัก' : '🪶 เบา';
-        span.textContent = '+ ' + res.legKm[idx] + ' กม. · ' + load;
+        var heavy = (idx===lastIdx);   // ช่วงสุดท้าย = ขากลับ (หนัก)
+        span.innerHTML =
+          '+ ' + res.legKm[idx] + ' กม.' +
+          '<span class="leg-load ' + (heavy?'lg-heavy':'lg-light') + '">' +
+          (heavy?'🏋️ หนัก':'🪶 เบา') + '</span>';
       });
     })
     .catch(()=>{});
