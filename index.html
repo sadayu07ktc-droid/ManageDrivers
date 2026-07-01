@@ -754,11 +754,14 @@ function loadLegs(driverId, orderId){
       idxs.forEach(idx=>{
         const span=document.querySelector('.leg-km[data-idx="'+idx+'"]');
         if(!span) return;
-        var heavy = (idx===lastIdx);   // ช่วงสุดท้าย = ขากลับ (หนัก)
-        span.innerHTML =
-          '+ ' + res.legKm[idx] + ' กม.' +
-          '<span class="leg-load ' + (heavy?'lg-heavy':'lg-light') + '">' +
-          (heavy?'🏋️ หนัก':'🪶 เบา') + '</span>';
+        var heavy = (idx===lastIdx);
+        // 1) กล่องเขียว = ระยะ กม. เท่านั้น
+        span.textContent = '+ ' + res.legKm[idx] + ' กม.';
+        // 2) ป้ายเบา/หนัก = สร้างกล่องใหม่ วางต่อท้าย (นอกกล่องเขียว)
+        var tag = document.createElement('span');
+        tag.className = 'leg-load ' + (heavy?'lg-heavy':'lg-light');
+        tag.textContent = heavy?'🏋️ หนัก':'🪶 เบา';
+        span.insertAdjacentElement('afterend', tag);   // ← วางเป็นพี่น้อง ไม่ใช่ลูก
       });
     })
     .catch(()=>{});
