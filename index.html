@@ -765,8 +765,7 @@ function loadTripStats(driverId, orderId){
       setTxt('ts_dist',  res.distanceKm==null ? '—' : res.distanceKm);
       setTxt('ts_fuel',  res.fuelLiters==null ? '—' : res.fuelLiters);
       setTxt('ts_qty', res.qty==null ? '—' : Number(res.qty).toLocaleString());
-      setTxt('ts_cpu', res.costPerUnit==null ? '—'
-        : res.costPerUnit.toLocaleString('th-TH',{minimumFractionDigits:2, maximumFractionDigits:4}) + ' ' + (res.unit||''));
+      setTxt('ts_qty', res.qty==null ? '—' : Number(res.qty).toLocaleString('th-TH'));
     })
     .catch(()=>{});
 }
