@@ -808,6 +808,14 @@ function setSummaryPeriod(driverId, period, btn){
 }
 function loadSummary(driverId, period){
   if(!MY_UID) return;
+
+  // วันนี้ใช้แหล่งเดียวกับหน้า Chart: getDtcTodayChart
+  // เพื่อให้ระยะทาง / เวลาวิ่ง / จอดดับ / จอดไม่ดับ มาจากชุดเดียวกัน
+  if(period === 'day'){
+    loadTodayDtcSummary(driverId);
+    return;
+  }
+
   const lbl=document.getElementById('smLabel');
   if(lbl) lbl.textContent='กำลังโหลด...';
   let url = GAS_URL + '?action=getSummary&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&period=' + period;
@@ -833,6 +841,71 @@ function loadSummary(driverId, period){
     mark('sm_ot4_c', D.overtime4);
     mark('sm_ot8_c', D.overtime8);
   }).catch(()=>{ if(lbl)lbl.textContent='โหลดไม่สำเร็จ'; });
+}
+
+function loadTodayDtcSummary(driverId){
+  const lbl=document.getElementById('smLabel');
+  if(lbl) lbl.textContent='กำลังโหลดข้อมูลวันนี้จาก DTC / LOG_DailyCount...';
+
+  const localDriver = drivers.find(x => String(x.id) === String(driverId)) || {};
+  const url = GAS_URL
+    + '?action=getDtcTodayChart'
+    + '&driverId=' + encodeURIComponent(driverId)
+    + '&t=' + Date.now();
+
+  fetch(url, { cache:'no-store' })
+    .then(r => r.json())
+    .then(res => {
+      if(!res || !res.ok){
+        if(lbl) lbl.textContent='โหลดข้อมูลวันนี้ไม่สำเร็จ';
+        return;
+      }
+
+      const item = (res.items || []).find(x => String(x.driverId) === String(driverId)) || (res.items || [])[0] || {};
+
+      // ระยะทาง: ใช้จาก getDtcTodayChart ก่อน ถ้ายังไม่มี ให้ fallback จากข้อมูล GPS ใน getDrivers
+      const dist =
+        Number(item.distanceKm || item.dtcDistance || item.distance || 0) ||
+        Number(localDriver.distanceKm || localDriver.dtcDistance || localDriver.distance || localDriver.todayDistanceKm || 0);
+
+      const runMin  = Number(item.runMin  || 0);
+      const idleMin = Number(item.idleMin || 0);
+      const parkMin = Number(item.parkMin || 0);
+
+      if(lbl){
+        const up = res.updatedAt ? fmtApiTime_(res.updatedAt) : '';
+        lbl.textContent = 'ข้อมูลวันนี้ · ระยะทางและเวลาจาก DTC / LOG_DailyCount' + (up ? ' · อัปเดต ' + up : '');
+      }
+
+      // กล่อง "เครื่องเดินเบา + สรุปพฤติกรรมขับ"
+      setTxt('sm_idle', hmm(idleMin));
+      setTxt('sm_idlecnt', orDash(item.idleCount || 0));
+      setTxt('sm_idleover', orDash(item.idleOverCount || 0));
+      setTxt('sm_stop', orDash(item.stopCount || 0));
+
+      setTxt('sm_dist', dist ? Number(dist).toLocaleString('th-TH', {maximumFractionDigits:1}) : '0');
+      setTxt('sm_run', hmm(runMin));
+      setTxt('sm_ot4', orDash(item.overtime4 || 0));
+      setTxt('sm_ot8', orDash(item.overtime8 || 0));
+
+      mark('sm_idleover_c', item.idleOverCount);
+      mark('sm_ot4_c', item.overtime4);
+      mark('sm_ot8_c', item.overtime8);
+    })
+    .catch(err => {
+      console.error('loadTodayDtcSummary error', err);
+      if(lbl) lbl.textContent='โหลดข้อมูลวันนี้ไม่สำเร็จ';
+    });
+}
+
+function fmtApiTime_(v){
+  try{
+    const d = new Date(v);
+    if(isNaN(d)) return '';
+    return [d.getHours(), d.getMinutes()].map(x => String(x).padStart(2,'0')).join(':');
+  }catch(e){
+    return '';
+  }
 }
 function setTxt(id,v){ const el=document.getElementById(id); if(el) el.textContent=v; }
 function mark(id,v){ const el=document.getElementById(id); if(el) el.classList.toggle('bad', !!v && v>0); }
