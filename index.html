@@ -809,38 +809,61 @@ function setSummaryPeriod(driverId, period, btn){
 function loadSummary(driverId, period){
   if(!MY_UID) return;
 
-  // วันนี้ใช้แหล่งเดียวกับหน้า Chart: getDtcTodayChart
-  // เพื่อให้ระยะทาง / เวลาวิ่ง / จอดดับ / จอดไม่ดับ มาจากชุดเดียวกัน
-  if(period === 'day'){
-    loadTodayDtcSummary(driverId);
-    return;
-  }
+  const lbl = document.getElementById('smLabel');
+  if(lbl) lbl.textContent = 'กำลังโหลด...';
 
-  const lbl=document.getElementById('smLabel');
-  if(lbl) lbl.textContent='กำลังโหลด...';
-  let url = GAS_URL + '?action=getSummary&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&period=' + period;
-  if(period==='custom'){
-    const f=document.getElementById('smFrom'), t=document.getElementById('smTo');
-    if(!f.value||!t.value){ if(lbl)lbl.textContent='เลือกช่วงวันที่ก่อน'; return; }
+  let url = GAS_URL
+    + '?action=getSummary'
+    + '&userId=' + encodeURIComponent(MY_UID)
+    + '&driverId=' + encodeURIComponent(driverId)
+    + '&period=' + period;
+
+  if(period === 'custom'){
+    const f = document.getElementById('smFrom');
+    const t = document.getElementById('smTo');
+
+    if(!f.value || !t.value){
+      if(lbl) lbl.textContent = 'เลือกช่วงวันที่ก่อน';
+      return;
+    }
+
     url += '&from=' + f.value + '&to=' + t.value;
   }
+
   url += '&t=' + Date.now();
-  fetch(url).then(r=>r.json()).then(res=>{
-    if(!res || !res.ok){ if(lbl)lbl.textContent='โหลดไม่สำเร็จ'; return; }
-    if(lbl) lbl.textContent = res.rangeLabel + (res.note?(' · '+res.note):'');
-    const I=res.idle||{}, D=res.drive||{};
-    setTxt('sm_idle', I.totalMin==null?'—':hmm(I.totalMin));
-    setTxt('sm_idlecnt', orDash(I.count));
-    setTxt('sm_idleover', orDash(I.over));
-    setTxt('sm_stop', orDash(I.stop));
-    setTxt('sm_dist', orDash(D.distanceKm));
-    setTxt('sm_run', D.runMin==null?'—':hmm(D.runMin));
-    setTxt('sm_ot4', orDash(D.overtime4));
-    setTxt('sm_ot8', orDash(D.overtime8));
-    mark('sm_idleover_c', I.over);
-    mark('sm_ot4_c', D.overtime4);
-    mark('sm_ot8_c', D.overtime8);
-  }).catch(()=>{ if(lbl)lbl.textContent='โหลดไม่สำเร็จ'; });
+
+  fetch(url)
+    .then(r => r.json())
+    .then(res => {
+      if(!res || !res.ok){
+        if(lbl) lbl.textContent = 'โหลดไม่สำเร็จ';
+        return;
+      }
+
+      if(lbl) {
+        lbl.textContent = res.rangeLabel + (res.note ? (' · ' + res.note) : '');
+      }
+
+      const I = res.idle || {};
+      const D = res.drive || {};
+
+      setTxt('sm_idle', I.totalMin == null ? '—' : hmm(I.totalMin));
+      setTxt('sm_idlecnt', orDash(I.count));
+      setTxt('sm_idleover', orDash(I.over));
+      setTxt('sm_stop', orDash(I.stop));
+
+      setTxt('sm_dist', orDash(D.distanceKm));
+      setTxt('sm_run', D.runMin == null ? '—' : hmm(D.runMin));
+      setTxt('sm_ot4', orDash(D.overtime4));
+      setTxt('sm_ot8', orDash(D.overtime8));
+
+      mark('sm_idleover_c', I.over);
+      mark('sm_ot4_c', D.overtime4);
+      mark('sm_ot8_c', D.overtime8);
+    })
+    .catch(() => {
+      if(lbl) lbl.textContent = 'โหลดไม่สำเร็จ';
+    });
 }
 
 function loadTodayDtcSummary(driverId){
