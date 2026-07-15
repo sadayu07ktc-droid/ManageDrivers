@@ -621,15 +621,18 @@ function renderLegend(){
 function setFilter(f){filter=f;renderKpis();renderTabs();renderDrivers();updateIdle();}
 
 /* สร้างไทม์ไลน์ตามประเภทงาน: ผ่านลานเท = 6 สเต็ป, งานตรง = 4 สเต็ป */
+function fmtDur(min){ if(min==null) return ''; min=Math.round(min); const h=Math.floor(min/60), m=min%60; return (h?h+' ชม. ':'')+m+' นาที'; }
 function buildTimeline(d){
   const t=d.times||{};
   const node=(lab,tm)=>[lab,tm||'—',tm?1:0];
+  const leaveTm = t.leaveCustomer ? (t.leaveCustomer + (d.atCustomerMin!=null?' · อยู่ '+fmtDur(d.atCustomerMin):'')) : '';
   if(d.viaRamp){
     return [
       node('รับงาน',t.accept),
       node('เริ่มงาน · ออกรถ',t.start),
       node('ถึงลานเท · วางกระบะ',t.dropBin),
       node('ถึงสวน/ลูกค้า · รับปาล์ม',t.arrive),
+      node('ออกจากลูกค้า',leaveTm),
       node('ขากลับ · รับกระบะที่ลานเท',t.returnBin),
       node('เสร็จงาน · ส่งปลายทาง',t.done)
     ];
@@ -638,6 +641,7 @@ function buildTimeline(d){
     node('รับงาน',t.accept),
     node('เริ่มงาน',t.start),
     node('ถึงลูกค้า',t.arrive),
+    node('ออกจากลูกค้า',leaveTm),
     node('เสร็จงาน',t.done)
   ];
 }
@@ -645,8 +649,8 @@ function buildTimeline(d){
 /* ---- ออเดอร์ย้อนหลัง: เลือกแล้วอัปเดต timeline + สรุปเที่ยว ---- */
 let CUR_DRIVER=null, ORD_DATA={};
 
-function tlSectionHtml(order, times, viaRamp, garden, rampName){
-  const tl=buildTimeline({times:times||{}, viaRamp:viaRamp});
+function tlSectionHtml(order, times, viaRamp, garden, rampName, atCustomerMin){
+  const tl=buildTimeline({times:times||{}, viaRamp:viaRamp, atCustomerMin:atCustomerMin});
   return `<div class="dsec">
      <h3>${ICON.truck.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ไทม์ไลน์งาน <span class="src src-drive">DRIVE</span></h3>
      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${[order,garden].filter(Boolean).join(' · ')||'—'}</div>
@@ -661,14 +665,14 @@ function loadOrderHistory(d){
   ORD_DATA={};
   const picker=document.getElementById('ordPicker'); if(!picker) return;
   let opts='';
-  if(d.order){ ORD_DATA[d.order]={times:d.times, viaRamp:d.viaRamp, garden:d.garden, rampName:d.rampName}; opts+=`<option value="${d.order}">🔵 ${d.order}${d.garden?' · '+d.garden:''} (งานปัจจุบัน)</option>`; }
+  if(d.order){ ORD_DATA[d.order]={times:d.times, viaRamp:d.viaRamp, garden:d.garden, rampName:d.rampName, atCustomerMin:d.atCustomerMin}; opts+=`<option value="${d.order}">🔵 ${d.order}${d.garden?' · '+d.garden:''} (งานปัจจุบัน)</option>`; }
   if(!d.uid){ picker.innerHTML=opts||'<option>—</option>'; return; }
   fetch(GAS_URL+'?action=getDriverHistory&userId='+encodeURIComponent(d.uid)+'&t='+Date.now())
     .then(r=>r.json()).then(res=>{
       if(res&&res.status==='ok'&&Array.isArray(res.trips)){
         res.trips.slice().reverse().forEach(tp=>{
           if(!tp.ord||tp.ord===d.order) return;
-          ORD_DATA[tp.ord]={times:tp.times, viaRamp:tp.viaRamp, garden:tp.garden||tp.dest, rampName:''};
+          ORD_DATA[tp.ord]={times:tp.times, viaRamp:tp.viaRamp, garden:tp.garden||tp.dest, rampName:'', atCustomerMin:tp.atCustomerMin};
           opts+=`<option value="${tp.ord}">${tp.ord}${tp.dest?' · '+tp.dest:''}</option>`;
         });
       }
@@ -678,7 +682,7 @@ function loadOrderHistory(d){
 
 function pickOrder(ord){
   const data=ORD_DATA[ord]; if(!data||!CUR_DRIVER) return;
-  const box=document.getElementById('tlBox'); if(box) box.innerHTML=tlSectionHtml(ord,data.times,data.viaRamp,data.garden,data.rampName);
+  const box=document.getElementById('tlBox'); if(box) box.innerHTML=tlSectionHtml(ord,data.times,data.viaRamp,data.garden,data.rampName,data.atCustomerMin);
   const lbl=document.getElementById('tsOrdLabel'); if(lbl) lbl.textContent=ord;
   ['ts_kmpl','ts_heavy','ts_dist','ts_fuel'].forEach(id=>setTxt(id,'—'));
   loadTripStats(CUR_DRIVER.id, ord);
@@ -731,7 +735,7 @@ function openDrawer(id){
      </div>
    </div>
 
-   <div id="tlBox">${hasJob?tlSectionHtml(d.order,d.times,d.viaRamp,d.garden,d.rampName):''}</div>
+   <div id="tlBox">${hasJob?tlSectionHtml(d.order,d.times,d.viaRamp,d.garden,d.rampName,d.atCustomerMin):''}</div>
 
    <div class="dsec">
      <h3>🚚 สรุปต่อเที่ยว <span class="src src-drive">DRIVE</span></h3>
