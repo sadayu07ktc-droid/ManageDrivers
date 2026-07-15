@@ -661,7 +661,7 @@ function loadOrderHistory(d){
   ORD_DATA={};
   const picker=document.getElementById('ordPicker'); if(!picker) return;
   let opts='';
-  if(d.order){ ORD_DATA[d.order]={times:d.times, viaRamp:d.viaRamp, garden:d.garden, rampName:d.rampName}; opts+=`<option value="${d.order}">🔵 ${d.order} (งานปัจจุบัน)</option>`; }
+  if(d.order){ ORD_DATA[d.order]={times:d.times, viaRamp:d.viaRamp, garden:d.garden, rampName:d.rampName}; opts+=`<option value="${d.order}">🔵 ${d.order}${d.garden?' · '+d.garden:''} (งานปัจจุบัน)</option>`; }
   if(!d.uid){ picker.innerHTML=opts||'<option>—</option>'; return; }
   fetch(GAS_URL+'?action=getDriverHistory&userId='+encodeURIComponent(d.uid)+'&t='+Date.now())
     .then(r=>r.json()).then(res=>{
@@ -669,7 +669,7 @@ function loadOrderHistory(d){
         res.trips.slice().reverse().forEach(tp=>{
           if(!tp.ord||tp.ord===d.order) return;
           ORD_DATA[tp.ord]={times:tp.times, viaRamp:tp.viaRamp, garden:tp.garden||tp.dest, rampName:''};
-          opts+=`<option value="${tp.ord}">${tp.ord}${tp.date?' · '+tp.date:''}</option>`;
+          opts+=`<option value="${tp.ord}">${tp.ord}${tp.dest?' · '+tp.dest:''}</option>`;
         });
       }
       picker.innerHTML=opts||'<option>ยังไม่มีออเดอร์ที่เสร็จ</option>';
