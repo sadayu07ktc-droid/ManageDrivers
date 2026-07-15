@@ -642,9 +642,53 @@ function buildTimeline(d){
   ];
 }
 
+/* ---- ออเดอร์ย้อนหลัง: เลือกแล้วอัปเดต timeline + สรุปเที่ยว ---- */
+let CUR_DRIVER=null, ORD_DATA={};
+
+function tlSectionHtml(order, times, viaRamp, garden, rampName){
+  const tl=buildTimeline({times:times||{}, viaRamp:viaRamp});
+  return `<div class="dsec">
+     <h3>${ICON.truck.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ไทม์ไลน์งาน <span class="src src-drive">DRIVE</span></h3>
+     <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${[order,garden].filter(Boolean).join(' · ')||'—'}</div>
+     ${viaRamp?`<div style="display:inline-flex;align-items:center;gap:7px;background:#EAF3EF;color:var(--pine-deep);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">${ICON.pin.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ผ่านลานเท${rampName?' · '+rampName:''}</div>`:`<div style="display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);color:var(--ink-soft);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">งานตรง · ไม่ผ่านลานเท</div>`}
+     <div class="timeline">${tl.map(([lab,tm,done],i)=>`
+       <div class="tl ${done?'done':'pending'}"><div class="line"></div><div class="node"></div>
+         <div><div class="lab">${lab}</div><div class="tm">${tm}<span class="leg-km" data-idx="${i}"></span></div></div></div>`).join('')}</div>
+   </div>`;
+}
+
+function loadOrderHistory(d){
+  ORD_DATA={};
+  const picker=document.getElementById('ordPicker'); if(!picker) return;
+  let opts='';
+  if(d.order){ ORD_DATA[d.order]={times:d.times, viaRamp:d.viaRamp, garden:d.garden, rampName:d.rampName}; opts+=`<option value="${d.order}">🔵 ${d.order} (งานปัจจุบัน)</option>`; }
+  if(!d.uid){ picker.innerHTML=opts||'<option>—</option>'; return; }
+  fetch(GAS_URL+'?action=getDriverHistory&userId='+encodeURIComponent(d.uid)+'&t='+Date.now())
+    .then(r=>r.json()).then(res=>{
+      if(res&&res.status==='ok'&&Array.isArray(res.trips)){
+        res.trips.slice().reverse().forEach(tp=>{
+          if(!tp.ord||tp.ord===d.order) return;
+          ORD_DATA[tp.ord]={times:tp.times, viaRamp:tp.viaRamp, garden:tp.garden||tp.dest, rampName:''};
+          opts+=`<option value="${tp.ord}">${tp.ord}${tp.date?' · '+tp.date:''}</option>`;
+        });
+      }
+      picker.innerHTML=opts||'<option>ยังไม่มีออเดอร์ที่เสร็จ</option>';
+    }).catch(()=>{ picker.innerHTML=opts||'<option>โหลดไม่สำเร็จ</option>'; });
+}
+
+function pickOrder(ord){
+  const data=ORD_DATA[ord]; if(!data||!CUR_DRIVER) return;
+  const box=document.getElementById('tlBox'); if(box) box.innerHTML=tlSectionHtml(ord,data.times,data.viaRamp,data.garden,data.rampName);
+  const lbl=document.getElementById('tsOrdLabel'); if(lbl) lbl.textContent=ord;
+  ['ts_kmpl','ts_heavy','ts_dist','ts_fuel'].forEach(id=>setTxt(id,'—'));
+  loadTripStats(CUR_DRIVER.id, ord);
+  loadLegs(CUR_DRIVER.id, ord);
+}
+
 /* ---- drawer ---- */
 function openDrawer(id){
   const d=drivers.find(x=>x.id===id);if(!d)return;
+  CUR_DRIVER=d;
   const st=STATUS[d.status];
   const hasJob = d.hasJob || !!d.order || (d.times && Object.values(d.times).some(Boolean));
   const tl=hasJob?buildTimeline(d):null;
@@ -655,6 +699,13 @@ function openDrawer(id){
        <span class="pip" style="background:${cv(st.c)}"></span>${st.th}</span>
      <div class="dname">${d.name}</div>
      <div class="dmeta">${d.id} · ทะเบียน ${d.plate}${d.alias?' · ('+d.alias+')':''}</div>
+   </div>
+
+   <div style="padding:11px 16px;background:#F4F8F5;border-bottom:1px solid var(--line)">
+     <label style="font-size:11.5px;color:var(--ink-faint);display:block;margin-bottom:5px">📋 ดูออเดอร์ย้อนหลัง (เลือกเพื่อดู timeline + สรุปเที่ยว)</label>
+     <select id="ordPicker" onchange="pickOrder(this.value)" style="width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:8px;font-family:inherit;font-size:13px;background:#fff">
+       <option>กำลังโหลด...</option>
+     </select>
    </div>
 
    <div class="dsec">
@@ -680,18 +731,11 @@ function openDrawer(id){
      </div>
    </div>
 
-   ${tl?`<div class="dsec">
-     <h3>${ICON.truck.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ไทม์ไลน์งานปัจจุบัน <span class="src src-drive">DRIVE</span></h3>
-     <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${[d.order,d.garden].filter(Boolean).join(' · ')||'งานปัจจุบัน'}</div>
-     ${d.viaRamp?`<div style="display:inline-flex;align-items:center;gap:7px;background:#EAF3EF;color:var(--pine-deep);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">${ICON.pin.replace('class="ic"','class="ic" style="width:13px;height:13px"')} ผ่านลานเท · ${d.rampName}</div>`:`<div style="display:inline-flex;align-items:center;gap:7px;background:var(--surface-2);color:var(--ink-soft);font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;margin-bottom:13px">งานตรง · ไม่ผ่านลานเท</div>`}
-     <div class="timeline">${tl.map(([lab,tm,done],i)=>`
-       <div class="tl ${done?'done':'pending'}"><div class="line"></div><div class="node"></div>
-         <div><div class="lab">${lab}</div><div class="tm">${tm}<span class="leg-km" data-idx="${i}"></span></div></div></div>`).join('')}</div>
-   </div>`:''}
+   <div id="tlBox">${hasJob?tlSectionHtml(d.order,d.times,d.viaRamp,d.garden,d.rampName):''}</div>
 
-   ${tl?`<div class="dsec">
-     <h3>🚚 สรุปต่อเที่ยว (จากออเดอร์ปัจจุบัน) <span class="src src-drive">DRIVE</span></h3>
-     <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace">${d.order||'—'}</div>
+   <div class="dsec">
+     <h3>🚚 สรุปต่อเที่ยว <span class="src src-drive">DRIVE</span></h3>
+     <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace"><span id="tsOrdLabel">${d.order||'—'}</span></div>
      <div class="metrics">
        <div class="metric"><div class="mn" id="ts_kmpl">—</div><div class="ml">อัตราสิ้นเปลือง (กม./ลิตร)</div></div>
        <div class="metric"><div class="mn" id="ts_heavy">—</div><div class="ml">% วิ่งรถหนัก</div></div>
@@ -700,7 +744,7 @@ function openDrawer(id){
        <div class="metric"><div class="mn" id="ts_qty">—</div><div class="ml">ปริมาณ (กก./ชิ้น)</div></div>
        <div class="metric"><div class="mn" id="ts_cpu">—</div><div class="ml">ต้นทุนรวม/หน่วย</div></div>
      </div>
-   </div>`:''}
+   </div>
 
    <div class="dsec" style="background:#FFFDF6">
      <h3>${ICON.fuel.replace('class="ic"','class="ic" style="width:13px;height:13px;color:var(--alert)"')} เครื่องเดินเบา + สรุปพฤติกรรมขับ <span class="src src-gps">GPS API</span></h3>
@@ -751,6 +795,7 @@ function openDrawer(id){
   updateIdle();
   if(hasJob) loadLegs(d.id, d.order);
   if(hasJob) loadTripStats(d.id, d.order);   // 🆕 สรุปต่อเที่ยว (กม./ลิตร + %หนัก)
+  loadOrderHistory(d);                        // 🆕 populate dropdown ออเดอร์ย้อนหลัง
   loadSummary(d.id,'day');
 }
 function loadLegs(driverId, orderId){
