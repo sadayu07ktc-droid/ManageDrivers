@@ -717,6 +717,7 @@ function openDrawer(id){
      <div class="kv">
        <div class="item"><div class="kk">เบอร์โทร</div><div class="vv mono">${d.phone}</div></div>
        <div class="item"><div class="kk">ประเภทรถ</div><div class="vv">${d.vehicleType||'—'}</div></div>
+       <div class="item"><div class="kk">ยี่ห้อ / รุ่น</div><div class="vv">${[d.brand,d.model].filter(Boolean).join(' ')||'—'}</div></div>
        <div class="item"><div class="kk">ทะเบียนหัวลาก</div><div class="vv mono">${plateHead(d)}</div></div>
        <div class="item"><div class="kk">ทะเบียนลูก/หาง</div><div class="vv mono">${plateTrailer(d)}</div></div>
        <div class="item"><div class="kk">สถานะการจ้าง</div><div class="vv" style="color:${cv(st.c)}">${st.th}${d.order?` <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pine);background:#EAF3EF;padding:1px 6px;border-radius:5px;font-weight:600">${d.order}</span>`:''}</div></div>
