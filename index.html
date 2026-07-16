@@ -832,7 +832,7 @@ function loadTripStats(driverId, orderId){
     .then(r=>r.json())
     .then(res=>{
       if(!res || !res.ok) return;
-      setTxt('ts_kmpl',  res.kmPerLiter==null ? '—' : res.kmPerLiter);
+      setTxt('ts_kmpl',  res.kmPerLiter==null ? '—' : Number(res.kmPerLiter).toFixed(2));
       setTxt('ts_heavy', res.pctHeavy==null   ? '—' : res.pctHeavy + '%');
       setTxt('ts_dist',  res.distanceKm==null ? '—' : res.distanceKm);
       setTxt('ts_fuel',  res.fuelLiters==null ? '—' : res.fuelLiters);
