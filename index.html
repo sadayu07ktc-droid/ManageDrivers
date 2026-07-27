@@ -739,6 +739,11 @@ function openDrawer(id){
    <div id="tlBox">${hasJob?tlSectionHtml(d.order,d.times,d.viaRamp,d.garden,d.rampName,d.atCustomerMin):''}</div>
 
    <div class="dsec">
+     <h3>🔄 รอบวิ่งวันนี้ (ออก–เข้าโรงงาน) <span class="src src-gps">GPS API</span></h3>
+     <div id="roundsBox" style="font-size:13px;color:var(--ink-faint)">กำลังโหลด…</div>
+   </div>
+
+   <div class="dsec">
      <h3>🚚 สรุปต่อเที่ยว <span class="src src-drive">DRIVE</span></h3>
      <div style="font-size:12px;color:var(--ink-faint);margin-bottom:12px;font-family:'IBM Plex Mono',monospace"><span id="tsOrdLabel">${d.order||'—'}</span></div>
      <div class="metrics">
@@ -802,6 +807,44 @@ function openDrawer(id){
   if(hasJob) loadTripStats(d.id, d.order);   // 🆕 สรุปต่อเที่ยว (กม./ลิตร + %หนัก)
   loadOrderHistory(d);                        // 🆕 populate dropdown ออเดอร์ย้อนหลัง
   loadSummary(d.id,'day');
+  loadRounds(d);                              // 🔄 รอบวิ่งวันนี้ (ออก-เข้าโรงงาน)
+}
+
+/* 🔄 รอบวิ่งวันนี้ — ออกห่างโรงงาน >3กม. แล้วกลับ <2กม. = 1 รอบ (ดึง GPS แค่คันเดียว) */
+function _rndTime(iso){ if(!iso) return '—'; try{ return new Date(iso).toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}); }catch(e){ return '—'; } }
+function _rndDur(m){ m=Math.round(m||0); const h=Math.floor(m/60), mm=m%60; return h>0?(h+' ชม. '+mm+' นาที'):(mm+' นาที'); }
+function loadRounds(d){
+  const box=document.getElementById('roundsBox'); if(!box) return;
+  if(!MY_UID){ box.textContent='—'; return; }
+  box.textContent='กำลังโหลด…';
+  fetch(GAS_URL+'?action=getDriverRounds&userId='+encodeURIComponent(MY_UID)
+    +'&driverId='+encodeURIComponent(d.id||'')+'&plate='+encodeURIComponent(d.plate||'')+'&t='+Date.now())
+    .then(r=>r.json())
+    .then(res=>{
+      if(!res||!res.ok){ box.textContent=(res&&res.denied)?'ไม่มีสิทธิ์':'โหลดไม่สำเร็จ'; return; }
+      const rounds=res.rounds||[];
+      if(!rounds.length){ box.textContent=res.note||'วันนี้ยังไม่มีรอบวิ่ง'; return; }
+      box.innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:9px;font-size:12px;color:var(--ink-faint)">'
+        +'<span>วันนี้ <b style="color:var(--pine);font-size:14px">'+rounds.length+'</b> รอบ</span>'
+        +'<span class="mono">'+(res.date||'')+'</span></div>'
+        +rounds.map((t,i)=>{
+          const running=!t.returnTime;
+          const dist=(t.distanceKm!=null&&t.distanceKm>0)?Number(t.distanceKm).toLocaleString('th-TH'):'—';
+          const dur=(t.durationMin!=null)?_rndDur(t.durationMin):'—';
+          return '<div style="border:1px solid var(--line);border-left:3px solid '+(running?'var(--alert)':'var(--pine)')
+            +';border-radius:10px;padding:9px 11px;margin-bottom:7px;background:#fff">'
+            +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">'
+            +'<b style="font-size:13px">รอบ '+(i+1)+'</b>'
+            +'<span style="font-size:10.5px;font-weight:700;padding:2px 9px;border-radius:999px;background:'
+              +(running?'var(--alert-bg)':'#EAF3EF')+';color:'+(running?'#9a5a06':'var(--pine)')+'">'
+              +(running?'กำลังวิ่ง':'จบรอบ')+'</span></div>'
+            +'<div class="mono" style="font-size:12.5px;color:var(--ink-soft)">🚀 ออก '+_rndTime(t.leaveTime)
+              +'  →  '+(running?'ยังไม่กลับ':'🏭 กลับ '+_rndTime(t.returnTime))+'</div>'
+            +'<div style="font-size:11.5px;color:var(--ink-faint);margin-top:3px">ระยะ '+dist+' กม. · ใช้เวลา '+dur+'</div>'
+            +'</div>';
+        }).join('');
+    })
+    .catch(()=>{ box.textContent='โหลดไม่สำเร็จ'; });
 }
 function loadLegs(driverId, orderId){
   if(!MY_UID) return;
