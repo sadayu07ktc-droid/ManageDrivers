@@ -1104,14 +1104,19 @@ function showGate(title,sub){
 function hideGate(){ document.getElementById('gate').style.display='none'; }
 
 async function bootstrap(){
+  // ⚡ จำ uid เดิม → ยิง getDrivers ทันที (ขนานกับ LIFF init) ไม่รอ LINE เสร็จก่อน
+  let cachedUid=null; try{ cachedUid=localStorage.getItem('ssb_md_uid'); }catch(e){}
+  let pre=null;
+  if(cachedUid){ MY_UID=cachedUid; pre=loadData(); }
   try{
     await liff.init({ liffId: LIFF_ID });
     if(!liff.isLoggedIn()){ liff.login(); return; }
     const profile = await liff.getProfile();
     MY_UID = profile.userId;
-    loadData();                 // backend ตรวจสิทธิ์แอดมินจาก userId เอง
+    try{ localStorage.setItem('ssb_md_uid', MY_UID); }catch(e){}
+    if(!(pre && cachedUid===MY_UID)) loadData();   // uid เปลี่ยน/ไม่มี cache → โหลดด้วย uid จริง
   }catch(err){
-    showGate('เปิดผ่าน LINE เท่านั้น','หน้านี้ต้องเปิดผ่านลิงก์ LIFF ในแอป LINE');
+    if(!pre) showGate('เปิดผ่าน LINE เท่านั้น','หน้านี้ต้องเปิดผ่านลิงก์ LIFF ในแอป LINE');
   }
 }
 
