@@ -583,6 +583,19 @@ function renderLiveTrucks(){
   }).join('');
 }
 
+// ── โทรหาคนขับ (tel:) — ตัดอักขระที่ไม่ใช่ตัวเลข/+ (กัน ' นำหน้า, เว้นวรรค, ขีด) ──
+function callPhone(phone){
+  const num=String(phone||'').replace(/[^0-9+]/g,'');
+  if(!num){ alert('ไม่มีเบอร์โทรของคนขับคนนี้ในระบบ'); return; }
+  location.href='tel:'+num;
+}
+function phoneByTask(t){
+  const norm=s=>String(s||'').replace(/\s|-/g,'').trim();
+  const byPlate=t.plate&&(drivers||[]).find(d=>norm(d.plate)===norm(t.plate));
+  if(byPlate&&byPlate.phone) return byPlate.phone;
+  const byName=t.driver&&(drivers||[]).find(d=>String(d.name).trim()===String(t.driver).trim());
+  return byName?byName.phone:'';
+}
 function renderTasks(){
   document.getElementById('taskCount').textContent=`${tasks.length} รายการ`;
   const map={repair:{ic:ICON.wrench,c:'--repair',bg:'--repair-bg'},
@@ -593,6 +606,8 @@ function renderTasks(){
   if(!tasks.length){el.innerHTML=`<div class="empty">ไม่มีรายการค้าง 🎉</div>`;return;}
   el.innerHTML=tasks.map(t=>{
     const m=map[t.kind];
+    const isCall=t.kind==='alert'||t.kind==='idle';
+    const ph=isCall?String(phoneByTask(t)||'').replace(/[^0-9+]/g,''):'';
     return `<div class="task">
       <div class="tic" style="background:${cv(m.bg)};color:${cv(m.c)}">${m.ic}</div>
       <div class="body">
@@ -600,8 +615,10 @@ function renderTasks(){
         <div class="t2">${t.detail}</div>
         <div class="t3">${t.ref}${t.plate?' · '+t.plate:''}</div>
         <div class="task-actions">
-          <button class="btn btn-ok">${t.kind==='alert'||t.kind==='idle'?'โทรเตือนคนขับ':'อนุมัติ'}</button>
-          <button class="btn btn-ghost">${t.kind==='alert'||t.kind==='idle'?'ดูแผนที่':'รายละเอียด'}</button>
+          ${isCall
+            ? `<button class="btn btn-ok" onclick='callPhone(${JSON.stringify(ph)})'>โทรเตือนคนขับ</button>`
+            : `<button class="btn btn-ok">อนุมัติ</button>`}
+          <button class="btn btn-ghost">${isCall?'ดูแผนที่':'รายละเอียด'}</button>
         </div>
       </div>
     </div>`;
@@ -797,7 +814,7 @@ function openDrawer(id){
 
    <div class="dactions">
      <button class="btn btn-ok">${ICON.pin.replace('class="ic"','class="ic" style="width:15px;height:15px"')} ดูบนแผนที่</button>
-     <button class="btn btn-ghost">${ICON.phone.replace('class="ic"','class="ic" style="width:15px;height:15px"')} โทรหาคนขับ</button>
+     <button class="btn btn-ghost" onclick='callPhone(${JSON.stringify(String(d.phone||"").replace(/[^0-9+]/g,""))})'>${ICON.phone.replace('class="ic"','class="ic" style="width:15px;height:15px"')} โทรหาคนขับ</button>
    </div>`;
   document.getElementById('drawer').innerHTML=html;
   document.getElementById('drawer').classList.add('show');
@@ -996,7 +1013,7 @@ function renderIdleWatch(){
           <span class="rname">${d.name}</span>
           <span class="rmeta"><span class="pl">${d.plate}</span> · ${d.loc}${d.distFactory!=null?' · ห่างโรงงาน '+d.distFactory+' กม.':''}${d.order?' · '+d.jobStatus:''}</span>
           <span class="iw-timer lv-${lv}" data-id="${d.id}" data-base="${d.idleBase}">${fmtIdle(sec)}</span>
-          <button class="rcall" onclick="event.stopPropagation()">โทรเตือน</button>
+          <button class="rcall" onclick='event.stopPropagation();callPhone(${JSON.stringify(String(d.phone||"").replace(/[^0-9+]/g,""))})'>โทรเตือน</button>
         </div>`;
       }).join('')}
     </div>`;
