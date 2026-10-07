@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>จัดการคนขับ · คอนโซลแอดมิน</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+<!-- ssbFetch: อ่านจาก Supabase Edge ก่อน พลาด → GAS (ไฟล์อยู่ repo SSB-SMART-SUPPLY-DASHBOARD) · โหลดไม่ได้ก็ใช้ fetch เดิม -->
+<script src="https://sadayu07ktc-droid.github.io/SSB-SMART-SUPPLY-DASHBOARD/ssb-read.js?v=20261007g"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1105,7 +1107,8 @@ function applyData(res){
 async function loadData(){
   try{
     const url = GAS_URL + '?action=getDrivers&userId=' + encodeURIComponent(MY_UID) + '&t=' + Date.now();
-    const res = await fetch(url);
+    // ⚡ ssbFetch = Supabase Edge "manage-drivers" ก่อน (~3 วิ · ผลตรง GAS) พลาด/เกิน 10 วิ → GAS เดิม
+    const res = await (window.ssbFetch || fetch)(url);
     const json = await res.json();
     applyData(json);
   }catch(err){
