@@ -6,7 +6,7 @@
 <title>จัดการคนขับ · คอนโซลแอดมิน</title>
 <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
 <!-- ssbFetch: อ่านจาก Supabase Edge ก่อน พลาด → GAS (ไฟล์อยู่ repo SSB-SMART-SUPPLY-DASHBOARD) · โหลดไม่ได้ก็ใช้ fetch เดิม -->
-<script src="https://sadayu07ktc-droid.github.io/SSB-SMART-SUPPLY-DASHBOARD/ssb-read.js?v=20261007h"></script>
+<script src="https://sadayu07ktc-droid.github.io/SSB-SMART-SUPPLY-DASHBOARD/ssb-read.js?v=20261007i"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -686,7 +686,7 @@ function loadOrderHistory(d){
   let opts='';
   if(d.order){ ORD_DATA[d.order]={times:d.times, viaRamp:d.viaRamp, garden:d.garden, rampName:d.rampName, atCustomerMin:d.atCustomerMin}; opts+=`<option value="${d.order}">🔵 ${d.order}${d.garden?' · '+d.garden:''} (งานปัจจุบัน)</option>`; }
   if(!d.uid){ picker.innerHTML=opts||'<option>—</option>'; return; }
-  fetch(GAS_URL+'?action=getDriverHistory&userId='+encodeURIComponent(d.uid)+'&t='+Date.now())
+  (window.ssbFetch || fetch)(GAS_URL+'?action=getDriverHistory&userId='+encodeURIComponent(d.uid)+'&t='+Date.now())
     .then(r=>r.json()).then(res=>{
       if(res&&res.status==='ok'&&Array.isArray(res.trips)){
         res.trips.slice().reverse().forEach(tp=>{
@@ -867,7 +867,7 @@ function loadRounds(d){
 }
 function loadLegs(driverId, orderId){
   if(!MY_UID) return;
-  fetch(GAS_URL + '?action=getLegs&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&orderId=' + encodeURIComponent(orderId||'') + '&t=' + Date.now())
+  (window.ssbFetch || fetch)(GAS_URL + '?action=getLegs&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&orderId=' + encodeURIComponent(orderId||'') + '&t=' + Date.now())
     .then(r=>r.json())
     .then(res=>{
       if(!res || !res.ok || !res.legKm) return;
@@ -891,7 +891,7 @@ function loadLegs(driverId, orderId){
 
 function loadTripStats(driverId, orderId){
   if(!MY_UID) return;
-  fetch(GAS_URL + '?action=getTripStats&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&orderId=' + encodeURIComponent(orderId||'') + '&t=' + Date.now())
+  (window.ssbFetch || fetch)(GAS_URL + '?action=getTripStats&userId=' + encodeURIComponent(MY_UID) + '&driverId=' + encodeURIComponent(driverId) + '&orderId=' + encodeURIComponent(orderId||'') + '&t=' + Date.now())
     .then(r=>r.json())
     .then(res=>{
       if(!res || !res.ok) return;
@@ -944,7 +944,7 @@ function loadSummary(driverId, period){
 
   url += '&t=' + Date.now();
 
-  fetch(url)
+  (window.ssbFetch || fetch)(url)
     .then(r => r.json())
     .then(res => {
       if(!res || !res.ok){
