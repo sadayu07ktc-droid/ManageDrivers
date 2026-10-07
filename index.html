@@ -897,7 +897,7 @@ function loadTripStats(driverId, orderId){
       if(!res || !res.ok) return;
       setTxt('ts_kmpl',  res.kmPerLiter==null ? '—' : Number(res.kmPerLiter).toFixed(2));
       setTxt('ts_heavy', res.pctHeavy==null   ? '—' : res.pctHeavy + '%');
-      setTxt('ts_dist',  res.distanceKm==null ? '—' : res.distanceKm);
+      setTxt('ts_dist',  kmFmt(res.distanceKm));
       setTxt('ts_fuel',  res.fuelLiters==null ? '—' : res.fuelLiters);
       setTxt('ts_qty',   res.qty==null ? '—' : Number(res.qty).toLocaleString('th-TH'));
     
@@ -911,6 +911,8 @@ function loadTripStats(driverId, orderId){
 }
 const hmm = m => { if(m==null) return '—'; m=Math.round(m); return Math.floor(m/60)+':'+String(m%60).padStart(2,'0'); };
 const orDash = v => (v==null)?'—':(typeof v==='number'?Math.round(v*10)/10:v);
+/* ระยะทาง: คั่นหลักพัน + ทศนิยมไม่เกิน 1 ตำแหน่ง (2962.2 → 2,962.2) */
+const kmFmt = v => (v==null||v===''||isNaN(Number(v)))?'—':Number(v).toLocaleString('en-US',{maximumFractionDigits:1});
   
 function setSummaryPeriod(driverId, period, btn){
   document.querySelectorAll('.psel .pbtn').forEach(b=>b.classList.remove('on'));
@@ -964,7 +966,7 @@ function loadSummary(driverId, period){
       setTxt('sm_idleover', orDash(I.over));
       setTxt('sm_stop', orDash(I.stop));
 
-      setTxt('sm_dist', orDash(D.distanceKm));
+      setTxt('sm_dist', kmFmt(D.distanceKm));
       setTxt('sm_run', D.runMin == null ? '—' : hmm(D.runMin));
       setTxt('sm_ot4', orDash(D.overtime4));
       setTxt('sm_ot8', orDash(D.overtime8));
