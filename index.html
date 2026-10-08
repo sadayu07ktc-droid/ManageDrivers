@@ -290,6 +290,7 @@
   #gate p{font-size:13.5px;color:var(--ink-soft)}
   #gate .deny-ic{font-size:40px;margin-bottom:10px}
 </style>
+  <script src="https://sadayu07ktc-droid.github.io/SSB-SMART-SUPPLY-DASHBOARD/ssb-ui.js?v=20261008i"></script>
 </head>
 <body>
 
@@ -588,7 +589,7 @@ function renderLiveTrucks(){
 // ── โทรหาคนขับ (tel:) — ตัดอักขระที่ไม่ใช่ตัวเลข/+ (กัน ' นำหน้า, เว้นวรรค, ขีด) ──
 function callPhone(phone){
   const num=String(phone||'').replace(/[^0-9+]/g,'');
-  if(!num){ alert('ไม่มีเบอร์โทรของคนขับคนนี้ในระบบ'); return; }
+  if(!num){ ssbAlert('ไม่มีเบอร์โทรของคนขับคนนี้ในระบบ'); return; }
   location.href='tel:'+num;
 }
 function phoneByTask(t){
