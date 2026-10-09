@@ -114,6 +114,17 @@
   .gchip .ic{width:14px;height:14px}
   @media(max-width:640px){.gpsbar{gap:7px}.gchip{padding:7px 10px}.gchip .glabel{font-size:12px}}
 
+  /* ---------- ตัวกรองกลุ่มงาน (ไร่/Bulk/Packing) + ประเภทรถ — กรองทั้งหน้า · 2026-10-09 ---------- */
+  .fbar{display:flex;flex-direction:column;gap:8px;margin:0 0 16px}
+  .frow{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .frow .flab{font-size:12px;color:var(--ink-faint);font-weight:600;min-width:64px}
+  .fchip{font-family:inherit;font-size:13px;font-weight:600;border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);
+    padding:6px 13px;border-radius:999px;cursor:pointer;display:inline-flex;align-items:center;gap:7px}
+  .fchip .n{font-family:'IBM Plex Mono',monospace;font-size:12px;opacity:.75}
+  .fchip.on{color:#fff;border-color:var(--fc,var(--pine));background:var(--fc,var(--pine))}
+  .fchip.sm{font-size:12px;padding:4px 11px;font-weight:500}
+  .fchip.sm.on{--fc:var(--ink)}
+
   /* ---------- KPI strip ---------- */
   .kpis{display:grid;grid-template-columns:repeat(7,1fr);gap:10px;margin-bottom:22px}
   @media(max-width:1080px){.kpis{grid-template-columns:repeat(4,1fr)}}
@@ -316,6 +327,9 @@
 </header>
 
 <main>
+  <!-- ตัวกรองกลุ่มงาน + ประเภทรถ (มีผลทั้งหน้า) -->
+  <div class="fbar" id="fbar"></div>
+
   <!-- KPI strip (สถานะการจ้าง) -->
   <div class="kpis" id="kpis"></div>
 
@@ -417,6 +431,30 @@ const plateTrailer = d => plateList(d).slice(1).join(' · ') || '—';
 const avatarColor = s=>cv(STATUS[s].c);
 
 let filter='all', q='', gf='';
+
+/* กลุ่มงาน (ไร่/Bulk/Packing) + ประเภทรถ — เลือกแล้วทั้งหน้า (ตัวเลข/GPS/เดินเบา/รายชื่อ/รถใกล้โรงงาน) เหลือเฉพาะกลุ่มนั้น · จำไว้ในเครื่อง · 2026-10-09
+ * สีไอคอนคนขับ = สีกลุ่ม (เหมือนหน้าผู้ใช้งาน) · แถบสีหน้าการ์ด = สถานะ */
+let ALL_DRIVERS = [], fGroup = 'all', fVeh = 'all';
+try{ const s=JSON.parse(localStorage.getItem('ssb_md_scope')||'{}'); fGroup=s.g||'all'; fVeh=s.v||'all'; }catch(e){}
+const GROUPS = { 'ไร่':{label:'🌴 ไร่',c:'#2D6A4F'}, Bulk:{label:'🏭 Bulk',c:'#C2410C'}, Packing:{label:'📦 Packing',c:'#0E7490'} };
+const GROUP_ORDER = ['ไร่','Bulk','Packing'];
+const groupOf = d => GROUPS[d.group] ? d.group : (/^DVB-/.test(d.id||'') ? 'Bulk' : /^DVP-/.test(d.id||'') ? 'Packing' : 'ไร่');
+const VEH_ORDER = ['4 ล้อ','6 ล้อ','10 ล้อ','พ่วง(Trailer)'];
+const vehOf = d => { const s=String(d.vehicleType||''); if(!s && String(d.plates||'').indexOf(',')>=0) return 'พ่วง(Trailer)';
+  return /พ่วง|trailer|CPO/i.test(s) ? 'พ่วง(Trailer)' : /10/.test(s) ? '10 ล้อ' : /6/.test(s) ? '6 ล้อ' : /4/.test(s) ? '4 ล้อ' : 'ไม่ระบุ'; };
+function applyScope(){ drivers = ALL_DRIVERS.filter(d => (fGroup==='all'||groupOf(d)===fGroup) && (fVeh==='all'||vehOf(d)===fVeh)); }
+function renderFbar(){
+  const inG = ALL_DRIVERS.filter(d => fGroup==='all'||groupOf(d)===fGroup);
+  const none = inG.filter(d => vehOf(d)==='ไม่ระบุ').length;
+  const g = [['all','ทุกกลุ่ม',ALL_DRIVERS.length,'']].concat(GROUP_ORDER.map(k=>[k,GROUPS[k].label,ALL_DRIVERS.filter(d=>groupOf(d)===k).length,GROUPS[k].c]));
+  const v = [['all','🚚 ทุกประเภทรถ',inG.length]].concat(VEH_ORDER.map(k=>[k,k,inG.filter(d=>vehOf(d)===k).length])).concat(none?[['ไม่ระบุ','ไม่ระบุ',none]]:[]);
+  document.getElementById('fbar').innerHTML =
+    `<div class="frow"><span class="flab">กลุ่มงาน</span>${g.map(([k,l,n,c])=>`<button class="fchip ${fGroup===k?'on':''}" style="${c?'--fc:'+c:''}" onclick="setScope('${k}',null)">${l}<span class="n">${n}</span></button>`).join('')}</div>`+
+    `<div class="frow"><span class="flab">ประเภทรถ</span>${v.map(([k,l,n])=>`<button class="fchip sm ${fVeh===k?'on':''}" onclick="setScope(null,'${k}')">${l}<span class="n">${n}</span></button>`).join('')}</div>`;
+}
+function setScope(g,v){ if(g!=null) fGroup=g; if(v!=null) fVeh=v;
+  try{ localStorage.setItem('ssb_md_scope', JSON.stringify({g:fGroup,v:fVeh})); }catch(e){}
+  applyScope(); renderFbar(); renderAll(); }
 
 const gpsOf = d => d.atFactory ? 'fac' : d.gps;   // 'fac' | 'run' | 'idling' | 'park' | 'off'
 function gpsMatch(d){
@@ -533,7 +571,7 @@ function renderDrivers(){
     return `<div class="card" onclick="openDrawer('${d.id}')">
       <div class="edge" style="background:${cv(st.c)}"></div>
       <div class="card-top">
-        <div class="avatar" style="background:${avatarColor(d.status)}">${initials(d.name)}</div>
+        <div class="avatar" style="background:${GROUPS[groupOf(d)].c}" title="กลุ่ม ${groupOf(d)}">${initials(d.name)}</div>
         <div class="who">
           <div class="name">${d.name}</div>
           <div class="meta"><span class="mono">${d.id}</span> · <span class="mono">${d.plate}</span></div>
@@ -594,9 +632,9 @@ function callPhone(phone){
 }
 function phoneByTask(t){
   const norm=s=>String(s||'').replace(/\s|-/g,'').trim();
-  const byPlate=t.plate&&(drivers||[]).find(d=>norm(d.plate)===norm(t.plate));
+  const byPlate=t.plate&&(ALL_DRIVERS||[]).find(d=>norm(d.plate)===norm(t.plate));
   if(byPlate&&byPlate.phone) return byPlate.phone;
-  const byName=t.driver&&(drivers||[]).find(d=>String(d.name).trim()===String(t.driver).trim());
+  const byName=t.driver&&(ALL_DRIVERS||[]).find(d=>String(d.name).trim()===String(t.driver).trim());
   return byName?byName.phone:'';
 }
 function renderTasks(){
@@ -711,7 +749,7 @@ function pickOrder(ord){
 
 /* ---- drawer ---- */
 function openDrawer(id){
-  const d=drivers.find(x=>x.id===id);if(!d)return;
+  const d=ALL_DRIVERS.find(x=>x.id===id);if(!d)return;
   CUR_DRIVER=d;
   const st=STATUS[d.status];
   const hasJob = d.hasJob || !!d.order || (d.times && Object.values(d.times).some(Boolean));
@@ -1099,7 +1137,8 @@ function renderAll(){
 function applyData(res){
   if(res&&res.denied){ showGate('ไม่มีสิทธิ์เข้าถึง','หน้านี้สำหรับแอดมินเท่านั้น — ติดต่อผู้ดูแลระบบเพื่อเพิ่มสิทธิ์'); return; }
   if(!res||!res.ok){ showGate('โหลดข้อมูลไม่สำเร็จ','ลองรีเฟรชอีกครั้ง'); return; }
-  drivers = res.drivers||[];
+  ALL_DRIVERS = res.drivers||[];
+  applyScope(); renderFbar();
   tasks = res.tasks||[];
   IDLE_LIMIT_MIN = res.idleLimitMin||10;
   SERVER_SKEW = (res.serverNow||Date.now()) - Date.now();
