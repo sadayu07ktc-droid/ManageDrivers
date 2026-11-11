@@ -292,6 +292,11 @@
   .foot{max-width:1320px;margin:18px auto 0;padding:0 22px;font-size:11.5px;color:var(--ink-faint);line-height:1.7}
   .foot b{color:var(--ink-soft)}
 
+  /* 11 พ.ย. โหมดฝัง (?embed=1 · หน้าอื่นเปิดใน iframe) = โชว์แค่ drawer เต็มกรอบ */
+  html.embed header,html.embed main,html.embed .scrim{display:none!important}
+  html.embed body{background:var(--surface)}
+  html.embed .drawer{width:100%;box-shadow:none;transition:none}
+  html.embed #gate{background:var(--surface)}
   /* gate overlay */
   #gate{position:fixed;inset:0;z-index:200;background:var(--bg);display:grid;place-items:center;text-align:center;padding:30px}
   #gate .box{max-width:340px}
@@ -443,6 +448,37 @@ const VEH_ORDER = ['4 ล้อ','6 ล้อ','10 ล้อ','พ่วง(Trai
 const vehOf = d => { const s=String(d.vehicleType||''); if(!s && String(d.plates||'').indexOf(',')>=0) return 'พ่วง(Trailer)';
   return /พ่วง|trailer|CPO/i.test(s) ? 'พ่วง(Trailer)' : /10/.test(s) ? '10 ล้อ' : /6/.test(s) ? '6 ล้อ' : /4/.test(s) ? '4 ล้อ' : 'ไม่ระบุ'; };
 function applyScope(){ drivers = ALL_DRIVERS.filter(d => (fGroup==='all'||groupOf(d)===fGroup) && (fVeh==='all'||vehOf(d)===fVeh)); }
+/* ---- โหมดฝัง ?embed=1 · 11 พ.ย. 2026 คุณน้อง: กดแถวรถไร่ใน pk-daily → เปิด drawer คนขับตัวเดียวกับหน้านี้ (ไม่ทำซ้ำ)
+ *   หน้าแม่ (โดเมนเดียวกัน) ตั้ง window.__mdEmbed = { uid(), target(), close() } · uid/คนที่จะเปิด ไม่ผ่าน URL
+ *   target = { plate, name, ord } · หาคนขับจากทะเบียน (หัว/หาง) ก่อน แล้วค่อยชื่อ · ไม่สนตัวกรองกลุ่มของหน้านี้ */
+const EMBED = new URLSearchParams(location.search).get('embed')==='1';
+if(EMBED) document.documentElement.classList.add('embed');
+let EMBED_WANT=null, EMBED_ORD=null, EMBED_LAST=0;
+const parentApi = () => { try{ return (window.parent!==window && window.parent.__mdEmbed) || null; }catch(e){ return null; } };
+const normPlate = s => String(s||'').replace(/[\s-]/g,'');
+const normName = s => String(s||'').replace(/^(นาย|นางสาว|นาง|น\.ส\.)\s*/,'').trim();
+function mdFind(t){
+  const ps = String(t.plate||'').split(',').map(normPlate).filter(Boolean);
+  let d = ps.length && ALL_DRIVERS.find(x => plateList(x).some(p => ps.indexOf(normPlate(p))>=0));
+  const nm = normName(t.name);
+  if(!d && nm) d = ALL_DRIVERS.find(x => normName(x.name)===nm)
+                || ALL_DRIVERS.find(x => String(x.name||'').indexOf(nm)>=0);
+  return d || null;
+}
+function embedTry(){
+  const t=EMBED_WANT; if(!t) return; EMBED_WANT=null;
+  const d=mdFind(t);
+  if(!d){
+    const dr=document.getElementById('drawer');
+    dr.innerHTML='<div class="dh"><button class="x" onclick="closeDrawer()">×</button><div class="dname">ไม่พบคนขับในรายชื่อ</div>'
+      +'<div class="dmeta">'+[t.name,t.plate].filter(Boolean).map(x=>String(x).replace(/[<>&"]/g,'')).join(' · ')+'</div></div>'
+      +'<div class="dsec" style="font-size:13.5px;color:var(--ink-soft)">ทะเบียน/ชื่อนี้ไม่ตรงกับคนขับในระบบ — ตรวจที่หน้า จัดการคนขับ หรือแดชบอร์ดไร่</div>';
+    dr.classList.add('show'); return;
+  }
+  EMBED_ORD = t.ord || null;
+  openDrawer(d.id);
+}
+window.mdOpen = function(t){ EMBED_WANT=t||null; if(ALL_DRIVERS.length && Date.now()-EMBED_LAST<60000) embedTry(); else if(MY_UID) loadData(); };
 function renderFbar(){
   const inG = ALL_DRIVERS.filter(d => fGroup==='all'||groupOf(d)===fGroup);
   const none = inG.filter(d => vehOf(d)==='ไม่ระบุ').length;
@@ -735,6 +771,8 @@ function loadOrderHistory(d){
         });
       }
       picker.innerHTML=opts||'<option>ยังไม่มีออเดอร์ที่เสร็จ</option>';
+      if(EMBED_ORD && ORD_DATA[EMBED_ORD] && EMBED_ORD!==d.order){ picker.value=EMBED_ORD; pickOrder(EMBED_ORD); }   // โหมดฝัง: เปิดที่ออเดอร์ที่กดมา
+      EMBED_ORD=null;
     }).catch(()=>{ picker.innerHTML=opts||'<option>โหลดไม่สำเร็จ</option>'; });
 }
 
@@ -1024,6 +1062,7 @@ function mark(id,v){ const el=document.getElementById(id); if(el) el.classList.t
 function closeDrawer(){
   document.getElementById('drawer').classList.remove('show');
   document.getElementById('scrim').classList.remove('show');
+  if(EMBED){ const p=parentApi(); if(p&&p.close) p.close(); }
 }
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDrawer()});
 
@@ -1144,6 +1183,7 @@ function applyData(res){
   SERVER_SKEW = (res.serverNow||Date.now()) - Date.now();
   hideGate();
   renderAll();
+  if(EMBED){ EMBED_LAST=Date.now(); embedTry(); }
 }
 
 async function loadData(){
@@ -1167,6 +1207,10 @@ function hideGate(){ document.getElementById('gate').style.display='none'; }
 
 async function bootstrap(){
   // ⚡ จำ uid เดิม → ยิง getDrivers ทันที (ขนานกับ LIFF init) ไม่รอ LINE เสร็จก่อน
+  if(EMBED){   // โหมดฝัง: ใช้บัญชีของหน้าแม่ (ล็อกอินแล้ว) · ไม่มี → ทาง LIFF/บัตร SSO ปกติ
+    const p=parentApi(); if(p&&p.target) EMBED_WANT=p.target();
+    const u=p&&p.uid&&p.uid(); if(u){ MY_UID=u; loadData(); return; }
+  }
   let cachedUid=null; try{ cachedUid=localStorage.getItem('ssb_md_uid'); }catch(e){}
   let pre=null;
   if(cachedUid){ MY_UID=cachedUid; pre=loadData(); }
@@ -1183,7 +1227,7 @@ async function bootstrap(){
 }
 
 // auto-refresh ทุก 30 วินาที
-setInterval(()=>{ if(MY_UID) loadData(); }, 30000);
+setInterval(()=>{ if(MY_UID && (!EMBED || document.getElementById('drawer').classList.contains('show'))) loadData(); }, 30000);
 
 bootstrap();
 </script>
