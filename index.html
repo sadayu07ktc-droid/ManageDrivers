@@ -573,6 +573,18 @@ function matchSearch(d){
   return hay.includes(q.toLowerCase());
 }
 
+/* 📦 12 พ.ย. คุณน้อง "งาน packing ไม่มีลานขากลับ": สถานะ PK ใช้ช่องร่วมกับงานไร่ → โชว์ตามฟอร์มคนขับ (ค่าใน DB เดิม)
+   ⚠️ ตรงกับ Order_Status pkStatusLabel / schedule.html / orders.html / dev-drivers stTh */
+function pkStLbl(st,n){
+  if(st==='เริ่มงานแล้ว') return 'ออกจาก SSB แล้ว';
+  if(st==='ถึงลูกค้า') return 'เช็คอินถึงร้านแล้ว';
+  const sl={'ถึงลานวางกระบะ':'rampDrop','ออกจากลูกค้า':'client','ถึงลานขากลับ':'ramp','ถึงลาน':'ramp'}[st]; if(!sl) return '';
+  if(!n) return sl==='ramp'?'ส่งครบทุกจุด':sl==='rampDrop'?'ส่งจุด 1 แล้ว':'ส่งของแล้ว';
+  const ss=n<=1?['client']:n===2?['client','ramp']:['rampDrop','client','ramp'], i=ss.indexOf(sl);
+  if(i<0) return sl==='ramp'?'ส่งครบทุกจุด':sl==='rampDrop'?'ส่งจุด 1 แล้ว':'ส่งของแล้ว';
+  const upto=i===ss.length-1?n:i+1; return upto>=n?`ส่งครบ ${n} จุด`:`ส่งจุด ${upto} แล้ว`;
+}
+const jobStTxt=d=>(/^ORD-PK-/.test(d.order||'')&&pkStLbl(d.jobStatus,String(d.garden||'').split(/\s*\+\s*/).filter(Boolean).length))||d.jobStatus;
 function gpsLine(d){
   const fac = (d.atFactory)
     ? `<span class="seg"><span class="v" style="color:#6EE7A8;font-weight:600">🏭 ที่โรงงาน</span></span>`
@@ -617,7 +629,7 @@ function renderDrivers(){
       </div>
       <div class="telem">${gpsLine(d)}</div>
       ${(d.order||d.hasJob)?`<div class="job">${ICON.pin.replace('class="ic"','class="ic" style="color:var(--ink-faint);width:14px;height:14px"')}
-        ${d.order?`<span class="ord">${d.order}</span> · `:''}${d.garden||'งานปัจจุบัน'}${d.jobStatus?` · <b style="color:var(--ink-soft)">${d.jobStatus}</b>`:''}
+        ${d.order?`<span class="ord">${d.order}</span> · `:''}${d.garden||'งานปัจจุบัน'}${d.jobStatus?` · <b style="color:var(--ink-soft)">${jobStTxt(d)}</b>`:''}
         ${d.viaRamp?`<span style="margin-left:auto;font-size:10.5px;font-weight:600;color:var(--pine);background:#EAF3EF;padding:2px 7px;border-radius:6px;white-space:nowrap">ผ่านลานเท</span>`:''}</div>`:''}
       ${d.leaveType?`<div class="job">${ICON.leave.replace('class="ic"','class="ic" style="color:var(--leave);width:14px;height:14px"')} ${d.leaveType} · ${d.leaveRange}</div>`:''}
       ${d.repairIssue?`<div class="job">${ICON.wrench.replace('class="ic"','class="ic" style="color:var(--repair);width:14px;height:14px"')} ${d.repairIssue}</div>`:''}
@@ -1093,7 +1105,7 @@ function renderIdleWatch(){
         return `<div class="iw-row" onclick="openDrawer('${d.id}')">
           <span class="rdot" style="background:${dot}"></span>
           <span class="rname">${d.name}</span>
-          <span class="rmeta"><span class="pl">${d.plate}</span> · ${d.loc}${d.distFactory!=null?' · ห่างโรงงาน '+d.distFactory+' กม.':''}${d.order?' · '+d.jobStatus:''}</span>
+          <span class="rmeta"><span class="pl">${d.plate}</span> · ${d.loc}${d.distFactory!=null?' · ห่างโรงงาน '+d.distFactory+' กม.':''}${d.order?' · '+jobStTxt(d):''}</span>
           <span class="iw-timer lv-${lv}" data-id="${d.id}" data-base="${d.idleBase}">${fmtIdle(sec)}</span>
           <button class="rcall" onclick='event.stopPropagation();callPhone(${JSON.stringify(String(d.phone||"").replace(/[^0-9+]/g,""))})'>โทรเตือน</button>
         </div>`;
